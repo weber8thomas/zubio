@@ -46,7 +46,7 @@ export function LiveRefresh({ channel, watch }: { channel: string; watch: Watch[
   return (
     <p className="no-print inline-flex items-center gap-2 text-sm text-muted" aria-live="polite">
       <span className="size-2 rounded-full bg-success" aria-hidden />
-      Mise à jour en direct
+      En direct
     </p>
   );
 }

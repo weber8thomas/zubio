@@ -53,7 +53,7 @@ export default async function InvoicePage({ params }: PageProps<"/salle/factures
           <div className="text-right">
             <h1 className="text-2xl">Facture</h1>
             <p className="text-muted">N° {number}</p>
-            <p className="text-muted">Émise le {formatDay(slot.filled_at ?? slot.starts_at)}</p>
+            <p className="text-muted">Émise le {formatDay(slot.filled_at ?? slot.starts_at, false, true)}</p>
           </div>
         </header>
 

@@ -66,7 +66,7 @@ export default async function CoachCatalog({ searchParams }: PageProps<"/salle/c
         </Field>
         <Field label="Disponible le" htmlFor="jour">
           <Select id="jour" name="jour" defaultValue={weekday || ""}>
-            <option value="">Tous les jours</option>
+            <option value="">Tous</option>
             {WEEKDAYS.map((d, i) => (
               <option key={d} value={i + 1}>
                 {d}

@@ -1,10 +1,43 @@
 import { ArrowRight } from "lucide-react";
 import { redirect } from "next/navigation";
+import { OfferStatusBadge, SlotStatusBadge } from "@/components/status-badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { brand } from "@/config/brand";
 import { getSession, ROLE_HOME } from "@/lib/auth";
 import { publicEnv } from "@/lib/env";
+
+/** Aperçu statique du produit (données d'exemple, pas d'illustration). */
+const PREVIEW_OFFERS = [
+  { name: "Maialen Etcheverry", reason: "Favori · Diplôme ✓ · < 1 km · disponible", status: "accepted" },
+  { name: "Garazi Ospital", reason: "Favori · Diplôme ✓ · 2 km · disponible", status: "expired" },
+  { name: "Oihana Elissalde", reason: "Diplôme ✓ · 7 km · disponible", status: "expired" },
+] as const;
+
+function ProductPreview() {
+  return (
+    <figure className="rounded-[12px] border border-line bg-white p-5" aria-label="Exemple de créneau pourvu">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-display text-xl font-extrabold">Pilates</span>
+        <SlotStatusBadge status="filled" />
+      </div>
+      <p className="mt-0.5">Lundi · 18 h 30 – 19 h 30 · 45 €</p>
+      <p className="text-sm text-muted">Atrium Fitness Bayonne · pourvu en 6 min</p>
+      <ul className="mt-4 flex flex-col gap-2">
+        {PREVIEW_OFFERS.map((o) => (
+          <li key={o.name} className="flex items-center gap-3 rounded-[10px] border border-line p-3">
+            <div className="min-w-0 flex-1">
+              <p className="font-bold">{o.name}</p>
+              <p className="text-sm text-muted">{o.reason}</p>
+            </div>
+            <OfferStatusBadge status={o.status} />
+          </li>
+        ))}
+      </ul>
+      <figcaption className="mt-3 text-sm text-muted">Exemple : chaque proposition affiche sa raison.</figcaption>
+    </figure>
+  );
+}
 
 const STEPS = [
   ["1", "La salle publie un créneau", "Discipline, date, horaire, tarif : moins de 30 secondes."],
@@ -26,19 +59,24 @@ export default async function Home() {
       </header>
 
       <main className="flex flex-1 flex-col justify-center py-10">
-        <p className="font-bold text-accent">Bayonne · Anglet · Biarritz</p>
-        <h1 className="mt-3 max-w-3xl text-[40px] sm:text-[60px]">{brand.slogan}</h1>
-        <p className="mt-4 max-w-2xl text-lg text-muted">{brand.description}</p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          {publicEnv.demoMode && (
-            <ButtonLink href="/demo" size="lg">
-              Essayer la démo
-              <ArrowRight size={20} strokeWidth={1.75} aria-hidden />
-            </ButtonLink>
-          )}
-          <ButtonLink href="/connexion" variant="secondary" size="lg">
-            J&apos;ai déjà un compte
-          </ButtonLink>
+        <div className="grid items-center gap-10 lg:grid-cols-[1.2fr_1fr]">
+          <div>
+            <p className="font-bold text-accent">Bayonne · Anglet · Biarritz</p>
+            <h1 className="mt-3 max-w-3xl text-[40px] sm:text-[60px]">{brand.slogan}</h1>
+            <p className="mt-4 max-w-2xl text-lg text-muted">{brand.description}</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              {publicEnv.demoMode && (
+                <ButtonLink href="/demo" size="lg">
+                  Essayer la démo
+                  <ArrowRight size={20} strokeWidth={1.75} aria-hidden />
+                </ButtonLink>
+              )}
+              <ButtonLink href="/connexion" variant="secondary" size="lg">
+                J&apos;ai déjà un compte
+              </ButtonLink>
+            </div>
+          </div>
+          <ProductPreview />
         </div>
 
         <ol className="mt-14 grid gap-4 sm:grid-cols-3">

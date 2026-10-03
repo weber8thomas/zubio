@@ -30,9 +30,10 @@ const timeFormat = new Intl.DateTimeFormat(brand.locale, {
   minute: "2-digit",
 });
 
-export function formatDay(iso: string, short = false) {
+/** « Mardi 7 octobre » (majuscule initiale, sauf `inSentence`). */
+export function formatDay(iso: string, short = false, inSentence = false) {
   const text = (short ? shortDayFormat : dayFormat).format(new Date(iso));
-  return text.charAt(0).toUpperCase() + text.slice(1);
+  return inSentence ? text : text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /** « 18 h 30 », ou « 19 h » pour une heure pleine. */
