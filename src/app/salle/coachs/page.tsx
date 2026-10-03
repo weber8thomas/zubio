@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Select } from "@/components/ui/field";
 import { PageHeader } from "@/components/ui/page-header";
+import { COMMUNES, WEEKDAYS } from "@/config/area";
 import { skillLabel } from "@/core/vertical";
 import { requireVenue } from "@/lib/data/salle";
 import { formatMoney, todayIso } from "@/lib/format";
@@ -13,8 +14,6 @@ import { toggleFavorite } from "../actions";
 
 export const metadata: Metadata = { title: "Coachs" };
 
-const COMMUNES = ["Bayonne", "Anglet", "Biarritz"];
-const WEEKDAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
 export default async function CoachCatalog({ searchParams }: PageProps<"/salle/coachs">) {
   const { supabase, venue } = await requireVenue();
@@ -61,7 +60,7 @@ export default async function CoachCatalog({ searchParams }: PageProps<"/salle/c
           <Select id="commune" name="commune" defaultValue={commune}>
             <option value="">Toutes</option>
             {COMMUNES.map((c) => (
-              <option key={c}>{c}</option>
+              <option key={c.name}>{c.name}</option>
             ))}
           </Select>
         </Field>
