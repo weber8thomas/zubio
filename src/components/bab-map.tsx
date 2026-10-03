@@ -118,7 +118,7 @@ export function BabMap({
           );
         })}
 
-      {pins.map((p, i) => {
+      {[...pins].sort((a, b) => +!!a.active - +!!b.active).map((p, i) => {
         const [x, y] = xy(p.lat, p.lng);
         return (
           <motion.g
