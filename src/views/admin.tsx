@@ -1,7 +1,8 @@
 import { BadgeCheck, CalendarRange, Gauge, Timer, Users } from "lucide-react";
 import { toast } from "sonner";
 import { BabMap } from "@/components/bab-map";
-import { Avatar, dayLabel, Section, SkillTile, Stat, Status, time } from "@/components/kit";
+import { Avatar, Section, SkillTile, Stat, Status } from "@/components/kit";
+import { dayLabel, time } from "@/lib/format";
 import { Shell } from "@/components/shell";
 import { Button } from "@/components/ui/button";
 import { coachById, skillLabel, venueById } from "@/data/demo";

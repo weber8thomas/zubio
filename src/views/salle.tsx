@@ -3,7 +3,8 @@ import { ArrowLeft, BadgeCheck, CalendarCheck, ChevronRight, Clock, Heart, Layou
 import { useState } from "react";
 import { toast } from "sonner";
 import { BabMap } from "@/components/bab-map";
-import { Avatar, dayLabel, Section, SkillChip, SkillTile, Stat, Status, time } from "@/components/kit";
+import { Avatar, Section, SkillChip, SkillTile, Stat, Status } from "@/components/kit";
+import { dayLabel, time } from "@/lib/format";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

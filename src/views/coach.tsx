@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from "motion/react";
 import { BadgeCheck, CalendarDays, Check, Inbox, MapPin, Radar, Star, UserRound, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
-import { Avatar, dayLabel, Section, SkillChip, SkillTile, Status, time } from "@/components/kit";
+import { Avatar, Section, SkillChip, SkillTile, Status } from "@/components/kit";
+import { dayLabel, time } from "@/lib/format";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
