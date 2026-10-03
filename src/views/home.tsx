@@ -31,7 +31,7 @@ export function HomePage() {
         </button>
       </header>
 
-      <section className="grid items-center gap-8 pt-6 pb-10 lg:grid-cols-[1.1fr_1fr] lg:pt-14">
+      <section className="grid grid-cols-1 items-center gap-8 pt-6 pb-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:pt-14">
         <div>
           <p className="inline-flex items-center gap-2 rounded-full bg-primary-soft px-3 py-1 text-sm font-semibold text-primary-ink">
             Bayonne · Anglet · Biarritz
@@ -48,7 +48,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <section aria-label="Entrer dans la démo" className="grid gap-3 sm:grid-cols-3">
+      <section aria-label="Entrer dans la démo" className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {ROLES.map(({ href, icon: Icon, title, text }) => (
           <a
             key={href}
@@ -69,7 +69,7 @@ export function HomePage() {
 
       <section className="py-16">
         <h2 className="font-heading text-3xl font-extrabold tracking-tight">Comment ça marche</h2>
-        <ol className="mt-6 grid gap-6 sm:grid-cols-3">
+        <ol className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
           {STEPS.map(({ icon: Icon, title, text }, i) => (
             <li key={title}>
               <div className="flex items-center gap-3">

@@ -46,8 +46,8 @@ export const MY_VENUE = VENUES[0];
 const week = [1, 2, 3, 4, 5, 6];
 
 export const COACHES: Coach[] = [
-  { id: "maialen", name: "Maialen Etcheverry", town: "Bayonne", lat: 43.496, lng: -1.469, skills: ["pilates", "yoga", "collectifs"], diploma: { label: "Certification Pilates Matwork", verified: true }, days: [1, 2, 3, 4, 5, 6, 7], hours: ["07:00", "21:30"], radiusKm: 15, minHourly: 30, rating: 4.8, missions: 42 },
-  { id: "garazi", name: "Garazi Ospital", town: "Bayonne", lat: 43.4925, lng: -1.4752, skills: ["pilates", "collectifs"], diploma: { label: "CQP ALS", verified: true }, days: week, hours: ["16:30", "21:30"], radiusKm: 12, minHourly: 30, rating: 4.7, missions: 31 },
+  { id: "maialen", name: "Maialen Etcheverry", town: "Bayonne", lat: 43.5035, lng: -1.4615, skills: ["pilates", "yoga", "collectifs"], diploma: { label: "Certification Pilates Matwork", verified: true }, days: [1, 2, 3, 4, 5, 6, 7], hours: ["07:00", "21:30"], radiusKm: 15, minHourly: 30, rating: 4.8, missions: 42 },
+  { id: "garazi", name: "Garazi Ospital", town: "Anglet", lat: 43.4805, lng: -1.5005, skills: ["pilates", "collectifs"], diploma: { label: "CQP ALS", verified: true }, days: week, hours: ["16:30", "21:30"], radiusKm: 12, minHourly: 30, rating: 4.7, missions: 31 },
   { id: "julen", name: "Julen Iriarte", town: "Bayonne", lat: 43.484, lng: -1.48, skills: ["cross", "muscu"], diploma: { label: "BPJEPS AF", verified: true }, days: week, hours: ["16:30", "21:30"], radiusKm: 12, minHourly: 35, rating: 4.7, missions: 27 },
   { id: "camille", name: "Camille Durand", town: "Anglet", lat: 43.485, lng: -1.516, skills: ["yoga"], diploma: { label: "Yoga Alliance 200 h", verified: true }, days: [1, 2, 3, 4, 5], hours: ["06:30", "13:00"], radiusKm: 10, minHourly: 32, rating: 4.9, missions: 55 },
   { id: "oihana", name: "Oihana Elissalde", town: "Biarritz", lat: 43.479, lng: -1.565, skills: ["yoga", "pilates"], diploma: { label: "Certification Pilates", verified: true }, days: week, hours: ["16:30", "21:30"], radiusKm: 10, minHourly: 38, rating: 4.9, missions: 48 },
@@ -100,12 +100,12 @@ export const INITIAL_SLOTS: Slot[] = [
 ];
 
 export const INITIAL_OFFERS: Offer[] = [
-  { id: "o1", slotId: "s1", coachId: "maialen", reason: "Favori · Diplôme ✓ · < 1 km", status: "pending" },
-  { id: "o2", slotId: "s1", coachId: "garazi", reason: "Favori · Diplôme ✓ · 1 km", status: "pending" },
+  { id: "o1", slotId: "s1", coachId: "maialen", reason: "Favori · Diplôme ✓ · 2 km", status: "pending" },
+  { id: "o2", slotId: "s1", coachId: "garazi", reason: "Favori · Diplôme ✓ · 2 km", status: "pending" },
   { id: "o4", slotId: "s2", coachId: "julen", reason: "Diplôme ✓ · 1 km", status: "pending" },
   { id: "o5", slotId: "s2", coachId: "antton", reason: "Diplôme ✓ · 5 km", status: "declined" },
-  { id: "o6", slotId: "s6", coachId: "maialen", reason: "Diplôme ✓ · 5 km", status: "pending" },
-  { id: "o7", slotId: "s7", coachId: "maialen", reason: "Diplôme ✓ · 9 km", status: "pending" },
+  { id: "o6", slotId: "s6", coachId: "maialen", reason: "Diplôme ✓ · 6 km", status: "pending" },
+  { id: "o7", slotId: "s7", coachId: "maialen", reason: "Diplôme ✓ · 10 km", status: "pending" },
 ];
 
 /** Favoris de la salle connectée : passent en tête du matching. */

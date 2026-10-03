@@ -3,13 +3,13 @@ import { ArrowLeft, BadgeCheck, CalendarCheck, ChevronRight, Clock, Heart, Layou
 import { useState } from "react";
 import { toast } from "sonner";
 import { BabMap } from "@/components/bab-map";
-import { Avatar, Section, SkillChip, SkillTile, Stat, Status } from "@/components/kit";
+import { Avatar, AvatarStack, Section, SkillChip, SkillTile, Stat, Status } from "@/components/kit";
 import { dayLabel, time } from "@/lib/format";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { COACHES, coachById, FAVORITES, MY_VENUE, SKILLS, type SkillId, type Slot, skillLabel } from "@/data/demo";
-import { match } from "@/lib/matching";
+import { isoWeekday, match } from "@/lib/matching";
 import { go } from "@/lib/router";
 import { actions, coachesNow, useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
@@ -28,7 +28,7 @@ export function SalleSpace({ route }: { route: string[] }) {
   );
 }
 
-function SlotCard({ slot, asked }: { slot: Slot; asked: number }) {
+function SlotCard({ slot, asked }: { slot: Slot; asked: string[] }) {
   const coach = slot.coachId ? coachById(slot.coachId) : null;
   return (
     <a
@@ -44,11 +44,16 @@ function SlotCard({ slot, asked }: { slot: Slot; asked: number }) {
         <p className="text-sm text-muted-foreground">
           {dayLabel(slot.day)} · {time(slot.start)} – {time(slot.end)}
         </p>
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-2.5 flex items-center justify-between gap-2">
           <Status status={slot.status} />
-          <span className="truncate text-xs text-muted-foreground">
-            {coach ? coach.name : `${asked} coach${asked > 1 ? "s" : ""} sollicité${asked > 1 ? "s" : ""}`}
-          </span>
+          {coach ? (
+            <span className="flex min-w-0 items-center gap-2 text-xs font-medium">
+              <span className="truncate">{coach.name}</span>
+              <Avatar name={coach.name} id={coach.id} size="sm" />
+            </span>
+          ) : (
+            <AvatarStack people={asked.map(coachById)} />
+          )}
         </div>
       </div>
       <ChevronRight className="size-5 text-muted-foreground transition group-hover:translate-x-0.5" aria-hidden />
@@ -61,7 +66,7 @@ function Home() {
   const mine = slots.filter((s) => s.venueId === MY_VENUE.id);
   const open = mine.filter((s) => s.status === "open");
   const filled = mine.filter((s) => s.status === "filled");
-  const asked = (id: string) => offers.filter((o) => o.slotId === id).length;
+  const asked = (id: string) => offers.filter((o) => o.slotId === id && o.status !== "declined").map((o) => o.coachId);
 
   return (
     <>
@@ -83,16 +88,16 @@ function Home() {
       <div className="mt-4 grid grid-cols-3 gap-3">
         <Stat label="À venir" value={open.length + filled.length} icon={CalendarCheck} />
         <Stat label="Confirmés" value={filled.length} icon={BadgeCheck} />
-        <Stat label="En recherche" value={open.length} icon={Search} />
+        <Stat label="À pourvoir" value={open.length} icon={Search} />
       </div>
 
       <Section title="En recherche">
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {open.length ? open.map((s) => <SlotCard key={s.id} slot={s} asked={asked(s.id)} />) : <Empty text="Tous vos créneaux ont un coach." />}
         </div>
       </Section>
       <Section title="Confirmés">
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {filled.map((s) => (
             <SlotCard key={s.id} slot={s} asked={asked(s.id)} />
           ))}
@@ -110,7 +115,8 @@ const DURATIONS = [45, 60, 90];
 
 function Publish() {
   const [skill, setSkill] = useState<SkillId>("pilates");
-  const [day, setDay] = useState(1);
+  // Demain, ou après-demain si demain est un dimanche (peu de coachs disponibles).
+  const [day, setDay] = useState(isoWeekday(1) === 7 ? 2 : 1);
   const [start, setStart] = useState("18:30");
   const [duration, setDuration] = useState(60);
   const [price, setPrice] = useState(45);
@@ -158,7 +164,7 @@ function Publish() {
         </div>
       </Field>
 
-      <div className="grid gap-x-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
         <Field label="Début" htmlFor="start">
           <input
             id="start"
@@ -249,10 +255,13 @@ function SlotDetail({ id }: { id: string }) {
         <div className="min-w-0 flex-1">
           <h1 className="font-heading text-2xl font-extrabold tracking-tight sm:text-3xl">{skillLabel(slot.skill)}</h1>
           <p className="text-muted-foreground">
-            {dayLabel(slot.day)} · {time(slot.start)} – {time(slot.end)} · <span className="font-semibold text-foreground">{slot.price} €</span>
+            {dayLabel(slot.day)} · {time(slot.start)} – {time(slot.end)}
           </p>
+          <div className="mt-2 flex items-center gap-2">
+            <Status status={slot.status} />
+            <span className="font-heading font-bold tabular-nums">{slot.price} €</span>
+          </div>
         </div>
-        <Status status={slot.status} />
       </div>
 
       <AnimatePresence>
@@ -262,7 +271,7 @@ function SlotDetail({ id }: { id: string }) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             className="mt-6 flex items-center gap-4 rounded-[28px] bg-success-soft p-4 sm:p-5"
           >
-            <Avatar name={coach.name} size="lg" />
+            <Avatar name={coach.name} id={coach.id} size="lg" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-success-ink">C&apos;est confirmé</p>
               <p className="font-heading text-xl font-bold">{coach.name}</p>
@@ -274,15 +283,16 @@ function SlotDetail({ id }: { id: string }) {
         )}
       </AnimatePresence>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
         <div className="overflow-hidden rounded-[28px] ring-1 ring-border/60">
           <BabMap
             venue={MY_VENUE}
             radiusKm={slot.status === "open" ? slot.radiusKm : undefined}
-            pins={COACHES.map((c) => ({ ...c, active: offers.some((o) => o.coachId === c.id && o.status !== "declined") }))}
+            focusKm={slot.radiusKm * 1.1}
+            pins={COACHES.map((c) => ({ ...c, active: offers.some((o) => o.coachId === c.id && o.status !== "declined"), photo: true }))}
           />
           <p className="flex items-center gap-2 bg-card px-4 py-3 text-sm text-muted-foreground">
-            <Radar className="size-4 text-primary" aria-hidden /> Rayon de recherche : {slot.radiusKm} km autour de {MY_VENUE.name}
+            <Radar className="size-4 text-primary" aria-hidden /> Rayon de recherche : {slot.radiusKm} km autour de la salle
           </p>
         </div>
 
@@ -301,7 +311,7 @@ function SlotDetail({ id }: { id: string }) {
                     transition={{ delay: 0.3 + i * 0.12 }}
                     className="flex items-center gap-3 rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/60"
                   >
-                    <Avatar name={c.name} />
+                    <Avatar name={c.name} id={c.id} />
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-1.5 truncate font-semibold">
                         {c.name}
@@ -362,11 +372,11 @@ function Catalog() {
           </Chip>
         ))}
       </div>
-      <ul className="mt-5 grid gap-3 md:grid-cols-2">
+      <ul className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
         {list.map((c) => (
           <li key={c.id} className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60">
             <div className="flex items-center gap-3">
-              <Avatar name={c.name} />
+              <Avatar name={c.name} id={c.id} />
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 truncate font-heading font-bold">
                   {c.name}

@@ -26,7 +26,7 @@ function Offers() {
     .filter((o) => o.coachId === ME.id && o.status === "pending")
     .map((o) => ({ offer: o, slot: slots.find((s) => s.id === o.slotId)! }))
     .filter(({ slot }) => slot.status === "open")
-    .sort((a, b) => a.slot.day - b.slot.day || a.slot.start.localeCompare(b.slot.start));
+    .reverse(); // les plus récentes en premier
 
   function accept(offerId: string, venue: string) {
     if (actions.accept(offerId)) {
@@ -43,7 +43,7 @@ function Offers() {
         {pending.length ? `${pending.length} offre${pending.length > 1 ? "s" : ""} pour vous.` : "Aucune offre en attente."}
       </p>
 
-      <ul className="mt-6 grid gap-4 md:grid-cols-2">
+      <ul className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <AnimatePresence initial={false}>
           {pending.map(({ offer, slot }) => {
             const venue = venueById(slot.venueId);
@@ -74,7 +74,7 @@ function Offers() {
                   <Radar className="size-4" aria-hidden />
                   {offer.reason}
                 </p>
-                <div className="mt-4 grid grid-cols-[auto_1fr] gap-2">
+                <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-2">
                   <Button size="lg" variant="secondary" aria-label="Refuser" onClick={() => actions.decline(offer.id)}>
                     <X />
                   </Button>
@@ -118,7 +118,7 @@ function Planning() {
       </div>
 
       <Section title="Missions à venir">
-        <ul className="grid gap-3 md:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {upcoming.map((s) => {
             const venue = venueById(s.venueId);
             return (
@@ -146,7 +146,7 @@ function Profile() {
   return (
     <>
       <div className="flex items-center gap-4">
-        <Avatar name={ME.name} size="lg" />
+        <Avatar name={ME.name} id={ME.id} size="lg" />
         <div>
           <h1 className="font-heading text-2xl font-extrabold tracking-tight sm:text-3xl">{ME.name}</h1>
           <p className="flex items-center gap-3 text-sm text-muted-foreground">

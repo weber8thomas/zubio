@@ -29,12 +29,12 @@ export function AdminSpace() {
         <Stat label="Coachs actifs" value={coaches.length} icon={Users} />
       </div>
 
-      <div className="mt-2 grid gap-x-6 lg:grid-cols-2">
+      <div className="mt-2 grid grid-cols-1 gap-x-6 lg:grid-cols-2">
         <Section title={`Diplômes à valider · ${toVerify.length}`}>
           <ul className="flex flex-col gap-2">
             {toVerify.map((c) => (
               <li key={c.id} className="flex items-center gap-3 rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/60">
-                <Avatar name={c.name} />
+                <Avatar name={c.name} id={c.id} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{c.name}</p>
                   <p className="truncate text-sm text-muted-foreground">{c.diploma.label}</p>

@@ -47,22 +47,19 @@ export function SkillChip({ skill }: { skill: SkillId }) {
 
 const AVATAR_TONES = ["pilates", "yoga", "cross", "collectifs", "muscu", "aquagym"] as const;
 
-/** Avatar à initiales, teinte stable dérivée du nom. */
-export function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
+/** Portrait du coach (photos de démo randomuser.me), initiales à défaut. */
+export function Avatar({ name, id, size = "md" }: { name: string; id?: string; size?: "sm" | "md" | "lg" }) {
+  const box = cn(
+    "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full ring-2 ring-card",
+    size === "sm" && "size-8 text-xs",
+    size === "md" && "size-11 text-sm",
+    size === "lg" && "size-16 text-xl",
+  );
+  if (id) return <img src={`${import.meta.env.BASE_URL}avatars/${id}.jpg`} alt="" className={cn(box, "object-cover")} loading="lazy" />;
   const tone = AVATAR_TONES[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_TONES.length];
-  const initials = name.split(" ").map((p) => p[0]).slice(0, 2).join("");
   return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full font-heading font-bold",
-        size === "sm" && "size-8 text-xs",
-        size === "md" && "size-11 text-sm",
-        size === "lg" && "size-16 text-xl",
-      )}
-      style={{ background: `var(--skill-${tone}-bg)`, color: `var(--skill-${tone}-fg)` }}
-      aria-hidden
-    >
-      {initials}
+    <span className={cn(box, "font-heading font-bold")} style={{ background: `var(--skill-${tone}-bg)`, color: `var(--skill-${tone}-fg)` }} aria-hidden>
+      {name.split(" ").map((p) => p[0]).slice(0, 2).join("")}
     </span>
   );
 }
@@ -96,14 +93,28 @@ export function Status({ status }: { status: SlotStatus | OfferStatus }) {
 
 export function Stat({ label, value, icon: Icon, hint }: { label: string; value: ReactNode; icon: LucideIcon; hint?: string }) {
   return (
-    <div className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Icon className="size-4" strokeWidth={2} aria-hidden />
-        {label}
-      </div>
-      <p className="mt-2 font-heading text-3xl font-bold tracking-tight">{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+    <div className="flex flex-col rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60">
+      <span className="flex size-9 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+        <Icon className="size-[18px]" strokeWidth={2} aria-hidden />
+      </span>
+      <p className="mt-auto pt-4 font-heading text-3xl leading-none font-bold tracking-tight tabular-nums">{value}</p>
+      <p className="mt-1.5 truncate text-sm text-muted-foreground">{label}</p>
+      {hint && <p className="truncate text-xs text-muted-foreground/80">{hint}</p>}
     </div>
+  );
+}
+
+/** Pile de portraits (coachs sollicités). */
+export function AvatarStack({ people, max = 4 }: { people: { id: string; name: string }[]; max?: number }) {
+  return (
+    <span className="flex -space-x-2">
+      {people.slice(0, max).map((p) => (
+        <Avatar key={p.id} name={p.name} id={p.id} size="sm" />
+      ))}
+      {people.length > max && (
+        <span className="inline-flex size-8 items-center justify-center rounded-full bg-muted text-xs font-semibold ring-2 ring-card">+{people.length - max}</span>
+      )}
+    </span>
   );
 }
 

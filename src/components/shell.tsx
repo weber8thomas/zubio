@@ -62,7 +62,7 @@ export function Shell({ space, tabs, children }: { space: string; tabs: Tab[]; c
       {tabs.length > 0 && (
         <nav
           aria-label="Navigation"
-          className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-sm justify-around rounded-full bg-foreground p-1.5 shadow-float md:hidden"
+          className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 mx-auto grid max-w-sm auto-cols-fr grid-flow-col gap-1 rounded-full bg-foreground p-1.5 shadow-float md:hidden"
         >
           {tabs.map(({ href, label, icon: Icon, active }) => (
             <a
@@ -70,7 +70,7 @@ export function Shell({ space, tabs, children }: { space: string; tabs: Tab[]; c
               href={href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex h-12 flex-1 items-center justify-center gap-2 rounded-full text-sm font-semibold transition-colors",
+                "flex h-12 items-center justify-center gap-2 rounded-full text-sm font-semibold transition-colors",
                 active ? "bg-background text-foreground" : "text-background/70",
               )}
             >
