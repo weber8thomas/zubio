@@ -55,3 +55,9 @@ Chaque choix non précisé dans la demande est noté ici, avec sa raison.
 
 - L'espace admin a été délégué à un sous-agent (fichiers isolés sous `src/app/admin`), relu puis intégré.
 - **Rafraîchissement de secours toutes les 15 s** sur les pages en direct, si la connexion Realtime tombe (réseau mobile, veille).
+
+## Livraison
+
+- **Captures d'écran** : mobile en densité 2×, ordinateur en 1×, PNG à palette (≈ 3,6 Mo au total) pour garder le dépôt léger. Les champs date et heure y apparaissent au format du navigateur de test ; chez un utilisateur français ils s'affichent en JJ/MM/AAAA et 24 h.
+- **Pas de tests unitaires ajoutés** : la CI demandée se limite à lint, types et build. Le matching, la RLS et le parcours complet ont été vérifiés pendant le développement (voir PLAN.md, « Statut »).
+- **Pas de push sur `main`** : le dépôt GitHub a refusé l'accès à la session (403). Les commandes exactes sont dans DEPLOY.md.

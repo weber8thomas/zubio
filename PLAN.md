@@ -95,3 +95,19 @@ Je garde le socle (étapes 1–4 : projet, design system, schéma/RLS, auth) dan
 - Aucun `src/core/**` ne contient « sport »/discipline métier (`grep`).
 - Captures 375/1280 présentes dans `docs/screenshots/`, sans défilement horizontal ; Lighthouse accessibilité ≥ 90.
 - Aucun secret commité (`git grep` sur clés/JWT avant push).
+
+## Statut en fin de session
+
+| Critère | Résultat |
+|---|---|
+| `npm run lint`, `npm run typecheck`, `npm run build` | OK |
+| Migrations + seed (`supabase db reset`, stack locale) | OK |
+| Tests RLS (accès croisés, colonnes protégées, `accept_offer` par un autre coach, anonyme) | OK, refusés comme attendu |
+| Parcours E2E salle publie → coach accepte → salle confirmée en direct (Playwright, 2 navigateurs) | OK |
+| Lien magique (Mailpit local) | OK |
+| Clé `service_role` absente du bundle client (`.next/static`) | OK (non utilisée par l'application) |
+| `src/core` sans vocabulaire métier | OK |
+| Captures 375 / 1280 px, sans défilement horizontal | OK, `docs/screenshots/` |
+| Lighthouse mobile accessibilité (/, /demo, /salle, /coach, /admin) | 100 sur les cinq pages |
+| Push GitHub | Refusé (403, application GitHub non autorisée) : voir DEPLOY.md |
+| Supabase / Vercel hébergés | Non faits (pas de jetons) : voir DEPLOY.md |
