@@ -1,0 +1,7 @@
+/** Variables publiques (exposées au navigateur). Les secrets restent dans process.env côté serveur. */
+export const publicEnv = {
+  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+  supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+  siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  demoMode: process.env.NEXT_PUBLIC_DEMO_MODE !== "false",
+};
