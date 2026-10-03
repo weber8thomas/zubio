@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { BabMap } from "@/components/bab-map";
 import { Avatar, AvatarStack, Section, SkillChip, SkillTile, Stat, Status } from "@/components/kit";
-import { dayLabel, time } from "@/lib/format";
+import { dayLabel, hours } from "@/lib/format";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,11 +38,11 @@ function SlotCard({ slot, asked }: { slot: Slot; asked: string[] }) {
       <SkillTile skill={slot.skill} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate font-heading font-bold">{skillLabel(slot.skill)}</p>
+          <p className="truncate font-bold">{skillLabel(slot.skill)}</p>
           <span className="ml-auto font-heading font-bold tabular-nums">{slot.price} €</span>
         </div>
         <p className="text-sm text-muted-foreground">
-          {dayLabel(slot.day)} · {time(slot.start)} – {time(slot.end)}
+          {dayLabel(slot.day)} · {hours(slot.start, slot.end)}
         </p>
         <div className="mt-2.5 flex items-center justify-between gap-2">
           <Status status={slot.status} />
@@ -73,11 +73,11 @@ function Home() {
       <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
         <MapPin className="size-4" aria-hidden /> {MY_VENUE.town}
       </p>
-      <h1 className="mt-1 font-heading text-3xl font-extrabold tracking-tight sm:text-4xl">{MY_VENUE.name}</h1>
+      <h1 className="mt-1 font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">{MY_VENUE.name}</h1>
 
       <div className="mt-6 overflow-hidden rounded-[28px] bg-primary p-5 text-primary-foreground sm:flex sm:items-center sm:justify-between sm:p-7">
         <div>
-          <p className="font-heading text-xl font-bold sm:text-2xl">Un coach absent ce soir ?</p>
+          <p className="font-heading text-lg font-semibold sm:text-xl">Un coach absent ce soir ?</p>
           <p className="mt-1 text-primary-foreground/80">Publiez le créneau, les coachs compatibles sont prévenus aussitôt.</p>
         </div>
         <Button size="lg" variant="secondary" className="mt-4 w-full bg-card text-foreground hover:bg-card/90 sm:mt-0 sm:w-auto" onClick={() => go("/salle/publier")}>
@@ -131,7 +131,7 @@ function Publish() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="font-heading text-3xl font-extrabold tracking-tight">Publier un créneau</h1>
+      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Publier un créneau</h1>
       <p className="mt-1 text-muted-foreground">Quatre choix, et c&apos;est parti.</p>
 
       <Field label="Discipline">
@@ -253,9 +253,9 @@ function SlotDetail({ id }: { id: string }) {
       <div className="mt-2 flex items-start gap-4">
         <SkillTile skill={slot.skill} size="lg" />
         <div className="min-w-0 flex-1">
-          <h1 className="font-heading text-2xl font-extrabold tracking-tight sm:text-3xl">{skillLabel(slot.skill)}</h1>
+          <h1 className="font-heading text-[22px] leading-tight font-extrabold sm:text-[28px]">{skillLabel(slot.skill)}</h1>
           <p className="text-muted-foreground">
-            {dayLabel(slot.day)} · {time(slot.start)} – {time(slot.end)}
+            {dayLabel(slot.day)} · {hours(slot.start, slot.end)}
           </p>
           <div className="mt-2 flex items-center gap-2">
             <Status status={slot.status} />
@@ -274,7 +274,7 @@ function SlotDetail({ id }: { id: string }) {
             <Avatar name={coach.name} id={coach.id} size="lg" />
             <div className="min-w-0">
               <p className="text-sm font-semibold text-success-ink">C&apos;est confirmé</p>
-              <p className="font-heading text-xl font-bold">{coach.name}</p>
+              <p className="text-lg font-bold">{coach.name}</p>
               <p className="text-sm text-muted-foreground">
                 Pourvu en {slot.filledInMin} min · {coach.rating.toFixed(1)} ★ · {coach.missions} missions
               </p>
@@ -297,7 +297,7 @@ function SlotDetail({ id }: { id: string }) {
         </div>
 
         <div>
-          <h2 className="font-heading text-lg font-bold">Coachs sollicités</h2>
+          <h2 className="font-heading text-[17px] font-semibold">Coachs sollicités</h2>
           <ul className="mt-3 flex flex-col gap-2">
             <AnimatePresence initial>
               {offers.map((o, i) => {
@@ -362,7 +362,7 @@ function Catalog() {
 
   return (
     <>
-      <h1 className="font-heading text-3xl font-extrabold tracking-tight">Coachs du coin</h1>
+      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Coachs du coin</h1>
       <p className="mt-1 text-muted-foreground">{list.length} coachs entre Bayonne, Anglet et Biarritz.</p>
       <div className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
         <Chip active={!skill} onClick={() => setSkill(null)}>Tous</Chip>
@@ -378,7 +378,7 @@ function Catalog() {
             <div className="flex items-center gap-3">
               <Avatar name={c.name} id={c.id} />
               <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1.5 truncate font-heading font-bold">
+                <p className="flex items-center gap-1.5 truncate font-bold">
                   {c.name}
                   {FAVORITES.includes(c.id) && <Heart className="size-3.5 fill-primary text-primary" aria-label="Favori" />}
                 </p>

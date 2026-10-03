@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { BadgeCheck, CalendarDays, Check, Inbox, MapPin, Radar, Star, UserRound, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, Section, SkillChip, SkillTile, Status } from "@/components/kit";
-import { dayLabel, time } from "@/lib/format";
+import { dayLabel, hours } from "@/lib/format";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ function Offers() {
   return (
     <>
       <p className="text-sm font-medium text-muted-foreground">Bonjour</p>
-      <h1 className="font-heading text-3xl font-extrabold tracking-tight sm:text-4xl">{ME.name.split(" ")[0]}</h1>
+      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">{ME.name.split(" ")[0]}</h1>
       <p className="mt-1 text-muted-foreground">
         {pending.length ? `${pending.length} offre${pending.length > 1 ? "s" : ""} pour vous.` : "Aucune offre en attente."}
       </p>
@@ -59,9 +59,9 @@ function Offers() {
                 <div className="flex items-start gap-3">
                   <SkillTile skill={slot.skill} size="lg" />
                   <div className="min-w-0 flex-1">
-                    <p className="font-heading text-xl font-bold">{skillLabel(slot.skill)}</p>
+                    <p className="text-lg font-bold">{skillLabel(slot.skill)}</p>
                     <p className="text-sm font-medium">
-                      {dayLabel(slot.day)} · {time(slot.start)} – {time(slot.end)}
+                      {dayLabel(slot.day)} · {hours(slot.start, slot.end)}
                     </p>
                   </div>
                   <p className="font-heading text-2xl font-extrabold tabular-nums">{slot.price} €</p>
@@ -105,13 +105,13 @@ function Planning() {
 
   return (
     <>
-      <h1 className="font-heading text-3xl font-extrabold tracking-tight">Planning</h1>
+      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Planning</h1>
       <div className="mt-6 rounded-[28px] bg-foreground p-5 text-background sm:p-6">
         <div className="flex items-center gap-2 text-sm text-background/70">
           <Wallet className="size-4" aria-hidden /> Revenus du mois
           <Badge variant="outline" className="ml-auto border-background/30 text-background/80">Démo</Badge>
         </div>
-        <p className="mt-2 font-heading text-5xl font-extrabold tracking-tight tabular-nums">{earned + planned} €</p>
+        <p className="mt-2 font-heading text-[40px] leading-none font-extrabold tabular-nums">{earned + planned} €</p>
         <p className="mt-1 text-sm text-background/70">
           {earned} € réalisés · {planned} € à venir
         </p>
@@ -125,7 +125,7 @@ function Planning() {
               <li key={s.id} className="flex items-center gap-3 rounded-3xl bg-card p-3 pr-4 shadow-soft ring-1 ring-border/60">
                 <SkillTile skill={s.skill} />
                 <div className="min-w-0 flex-1">
-                  <p className="font-heading font-bold">{dayLabel(s.day)} · {time(s.start)}</p>
+                  <p className="font-bold">{dayLabel(s.day)} · {s.start}</p>
                   <p className="truncate text-sm text-muted-foreground">
                     {skillLabel(s.skill)} · {venue.name}
                   </p>
@@ -148,7 +148,7 @@ function Profile() {
       <div className="flex items-center gap-4">
         <Avatar name={ME.name} id={ME.id} size="lg" />
         <div>
-          <h1 className="font-heading text-2xl font-extrabold tracking-tight sm:text-3xl">{ME.name}</h1>
+          <h1 className="font-heading text-[22px] leading-tight font-extrabold sm:text-[28px]">{ME.name}</h1>
           <p className="flex items-center gap-3 text-sm text-muted-foreground">
             <span className="flex items-center gap-1"><Star className="size-4 fill-current" aria-hidden />{ME.rating.toFixed(1)}</span>
             <span>{ME.missions} missions</span>
@@ -183,14 +183,14 @@ function Profile() {
             const on = ME.days.includes(i + 1);
             return (
               <div key={i} className={on ? "rounded-2xl bg-primary-soft p-2 text-center text-primary-ink" : "rounded-2xl bg-muted p-2 text-center text-muted-foreground"}>
-                <p className="font-heading font-bold">{d}</p>
-                <p className="text-[10px] leading-tight">{on ? time(ME.hours[0]) : "—"}</p>
+                <p className="font-bold">{d}</p>
+                <p className="text-[10px] leading-tight">{on ? ME.hours[0] : "—"}</p>
               </div>
             );
           })}
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
-          De {time(ME.hours[0])} à {time(ME.hours[1])} · jusqu&apos;à {ME.radiusKm} km · dès {ME.minHourly} €/h
+          De {ME.hours[0]} à {ME.hours[1]} · jusqu&apos;à {ME.radiusKm} km · dès {ME.minHourly} €/h
         </p>
       </Section>
     </>

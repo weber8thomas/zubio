@@ -36,8 +36,10 @@ export function HomePage() {
           <p className="inline-flex items-center gap-2 rounded-full bg-primary-soft px-3 py-1 text-sm font-semibold text-primary-ink">
             Bayonne · Anglet · Biarritz
           </p>
-          <h1 className="mt-4 font-heading text-5xl leading-[0.95] font-extrabold tracking-tight text-balance sm:text-6xl lg:text-7xl">
-            Le bon coach, au bon créneau.
+          <h1 className="mt-5 font-heading text-[32px] leading-[1.05] font-extrabold sm:text-[48px] lg:text-[56px]">
+            Le bon coach,
+            <br />
+            <span className="text-primary-ink">au bon créneau.</span>
           </h1>
           <p className="mt-5 max-w-md text-lg text-muted-foreground">
             Un coach absent ce soir ? La salle publie le créneau, Zubio trouve les coachs du coin qui peuvent venir.
@@ -58,7 +60,7 @@ export function HomePage() {
             <span className="flex size-12 items-center justify-center rounded-2xl bg-primary-soft text-primary-ink">
               <Icon className="size-6" strokeWidth={2} aria-hidden />
             </span>
-            <span className="mt-4 font-heading text-lg font-bold">{title}</span>
+            <span className="mt-4 text-lg font-bold">{title}</span>
             <span className="mt-1 flex-1 text-sm text-muted-foreground">{text}</span>
             <span className="mt-4 flex items-center gap-1 text-sm font-semibold text-primary">
               Entrer <ArrowRight className="size-4 transition group-hover:translate-x-1" aria-hidden />
@@ -68,7 +70,7 @@ export function HomePage() {
       </section>
 
       <section className="py-16">
-        <h2 className="font-heading text-3xl font-extrabold tracking-tight">Comment ça marche</h2>
+        <h2 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Comment ça marche</h2>
         <ol className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-3">
           {STEPS.map(({ icon: Icon, title, text }, i) => (
             <li key={title}>
@@ -78,7 +80,7 @@ export function HomePage() {
                 </span>
                 <span className="font-heading text-sm font-bold text-muted-foreground">0{i + 1}</span>
               </div>
-              <p className="mt-3 font-heading text-lg font-bold">{title}</p>
+              <p className="mt-3 text-lg font-bold">{title}</p>
               <p className="mt-1 text-muted-foreground">{text}</p>
             </li>
           ))}

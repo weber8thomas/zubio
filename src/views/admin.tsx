@@ -2,7 +2,7 @@ import { BadgeCheck, CalendarRange, Gauge, Timer, Users } from "lucide-react";
 import { toast } from "sonner";
 import { BabMap } from "@/components/bab-map";
 import { Avatar, Section, SkillTile, Stat, Status } from "@/components/kit";
-import { dayLabel, time } from "@/lib/format";
+import { dayLabel } from "@/lib/format";
 import { Shell } from "@/components/shell";
 import { Button } from "@/components/ui/button";
 import { coachById, skillLabel, venueById } from "@/data/demo";
@@ -19,7 +19,7 @@ export function AdminSpace() {
 
   return (
     <Shell space="admin" tabs={[]}>
-      <h1 className="font-heading text-3xl font-extrabold tracking-tight sm:text-4xl">Vue d&apos;ensemble</h1>
+      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Vue d&apos;ensemble</h1>
       <p className="mt-1 text-muted-foreground">Bayonne · Anglet · Biarritz</p>
 
       <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -69,7 +69,7 @@ export function AdminSpace() {
                     {skillLabel(s.skill)} · {venueById(s.venueId).name}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    {dayLabel(s.day)} · {time(s.start)}
+                    {dayLabel(s.day)} · {s.start}
                     {s.coachId && ` · ${coachById(s.coachId).name}`}
                   </p>
                 </div>

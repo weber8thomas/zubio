@@ -10,4 +10,5 @@ export function dayLabel(offset: number) {
   return dayFormat.format(d).replace(/^./, (c) => c.toUpperCase());
 }
 
-export const time = (hm: string) => (hm.endsWith(":00") ? `${+hm.slice(0, 2)} h` : `${+hm.slice(0, 2)} h ${hm.slice(3)}`);
+/** « 18:30–19:30 » */
+export const hours = (start: string, end: string) => `${start}–${end}`;

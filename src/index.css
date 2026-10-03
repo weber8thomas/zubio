@@ -1,63 +1,70 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/figtree";
+@import "@fontsource-variable/onest";
+@import "@fontsource/unbounded/600.css";
+@import "@fontsource/unbounded/800.css";
 
-/* Palette provisoire — remplacée par l'identité Zubio. */
+/* Identité « Ligne Z » : voir BRAND.md. Couleurs vérifiées WCAG AA. */
 :root {
-  --background: #fbf7f1;
-  --foreground: #221d18;
-  --card: #ffffff;
+  --background: #f8f1e4; /* sable */
+  --foreground: #2a211c; /* encre */
+  --card: #fffbf4; /* papier */
   --card-foreground: var(--foreground);
-  --popover: #ffffff;
+  --popover: #fffbf4;
   --popover-foreground: var(--foreground);
-  --primary: #e0352b;
-  --primary-hover: #c42a21;
+  --primary: #d63b27; /* rouge piment */
+  --primary-hover: #b8301e;
   --primary-foreground: #ffffff;
-  --primary-soft: #fde7e3;
-  --primary-ink: #a8231b;
-  --secondary: #f2ece3;
+  --primary-soft: #fbe1d9;
+  --primary-ink: #b02e1c; /* rouge pour du texte */
+  --secondary: #f1e7d5;
   --secondary-foreground: var(--foreground);
-  --muted: #f2ece3;
-  --muted-foreground: #6e655b;
-  --accent: #f2ece3;
+  --muted: #f1e7d5;
+  --muted-foreground: #756558;
+  --ink-soft: #5e5148;
+  --accent: #f1e7d5;
   --accent-foreground: var(--foreground);
-  --destructive: #c42a21;
-  --border: #e8e0d4;
-  --input: #e8e0d4;
-  --ring: #e0352b;
-  --radius: 0.75rem;
+  --destructive: #b02e1c;
+  --border: #e7dbc6;
+  --border-strong: #d5c4a8;
+  --input: #d5c4a8;
+  --ring: #d63b27;
+  --radius: 0.625rem;
 
-  --success: #2f9e5b;
-  --success-soft: #e3f4e8;
-  --success-ink: #1d6b3c;
-  --warning: #e59a1c;
-  --warning-soft: #fdf0d9;
-  --warning-ink: #8a5a0b;
+  --success: #2e7044;
+  --success-soft: #e1f0e2;
+  --success-ink: #2a6b3f;
+  --warning: #f2a93b;
+  --warning-soft: #fcefcf;
+  --warning-ink: #8a5a00;
 
-  --skill-pilates-bg: #fde7e3;
-  --skill-pilates-fg: #a8231b;
-  --skill-yoga-bg: #e6f0e4;
-  --skill-yoga-fg: #2f6a35;
-  --skill-cross-bg: #fdeed9;
-  --skill-cross-fg: #8f4f0a;
-  --skill-collectifs-bg: #f8e5ef;
-  --skill-collectifs-fg: #8b2a5b;
-  --skill-muscu-bg: #e9e6f0;
-  --skill-muscu-fg: #4a3f6b;
-  --skill-aquagym-bg: #e0eef1;
-  --skill-aquagym-fg: #1f5f6e;
+  --skill-pilates-fg: #a3284b;
+  --skill-pilates-bg: #fbe3e7;
+  --skill-yoga-fg: #456b22;
+  --skill-yoga-bg: #e6efd6;
+  --skill-cross-fg: #86560a;
+  --skill-cross-bg: #fbebc6;
+  --skill-collectifs-fg: #1c6b58;
+  --skill-collectifs-bg: #d8efe7;
+  --skill-muscu-fg: #3d4a6b;
+  --skill-muscu-bg: #e3e7f0;
+  --skill-aquagym-fg: #1f5f86;
+  --skill-aquagym-bg: #dcebf4;
 
-  --map-land: #f6efe4;
-  --map-sea: #d6e6ea;
-  --map-coast: #b7d0d6;
-  --map-label: #8a7f72;
-  --map-pin: #cdbfab;
+  --map-land: #fbf6ec;
+  --map-sea: #dcebf4;
+  --map-coast: #b9d3e3;
+  --map-wave: #a9c7da;
+  --map-label: #5e5148;
+  --map-pin: #d5c4a8;
+
+  color-scheme: light;
 }
 
 @theme inline {
-  --font-sans: "Figtree Variable", system-ui, sans-serif;
-  --font-heading: "Figtree Variable", system-ui, sans-serif;
+  --font-sans: "Onest Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Unbounded", ui-sans-serif, system-ui, sans-serif;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -74,6 +81,8 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-ink-soft: var(--ink-soft);
+  --color-border-strong: var(--border-strong);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -95,9 +104,12 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  --shadow-soft: 0 1px 2px rgb(60 40 20 / 0.04), 0 2px 8px rgb(60 40 20 / 0.04);
-  --shadow-lift: 0 2px 4px rgb(60 40 20 / 0.05), 0 12px 32px rgb(60 40 20 / 0.1);
-  --shadow-float: 0 8px 30px rgb(30 20 10 / 0.25);
+  --shadow-soft: 0 2px 8px rgb(74 48 24 / 0.07);
+  --shadow-lift: 0 16px 40px -12px rgb(74 48 24 / 0.22);
+  --shadow-float: 0 12px 32px -8px rgb(42 33 28 / 0.45);
+  --shadow-brand: 0 6px 16px -6px rgb(214 59 39 / 0.55);
+
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @layer base {
@@ -110,5 +122,18 @@
   }
   button:not(:disabled) {
     cursor: pointer;
+  }
+  :focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
   }
 }
