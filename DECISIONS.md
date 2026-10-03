@@ -37,3 +37,21 @@ Chaque choix non précisé dans la demande est noté ici, avec sa raison.
 - **Textes des badges succès/attente** dans des teintes plus foncées (`#17723A`, `#8A5300`) que les couleurs de statut, pour atteindre le contraste AA sur fond clair. Les couleurs `#1E8E3E` et `#C77700` restent utilisées pour les pastilles et icônes.
 - **Logotype vectorisé** (contours d'Archivo ExtraBold, interlettrage −3 %) : le logo ne dépend pas du chargement de la police.
 - **Favicon** : symbole seul, agrandi à 16 px pour rester lisible ; icône maskable sur fond rouge plein.
+
+## Espace admin
+
+- **Cookie de verticale limité au chemin `/admin`** (sameSite lax, 1 an) : seul l'espace admin change de verticale.
+- **Statuts accordés au genre** : chaque verticale peut fournir ses libellés de statut (« Pourvue » pour une intervention) ; le masculin du cœur sert par défaut.
+- **Taux de remplissage** = (pourvus + terminés) / (tous sauf annulés) ; **délai moyen** = moyenne de (pourvu le − publié le) sur les créneaux pourvus.
+- **Un justificatif vérifié mais expiré** s'affiche « Expiré » ; seuls les justificatifs « en attente » ont un bouton de validation.
+
+## Agent support
+
+- **Réponses préparées par mots-clés** (11 questions fréquentes) et réponse « Où en est mon créneau ? » calculée côté serveur avec le client de l'utilisateur connecté (RLS) : ni le message ni le modèle ne choisissent l'utilisateur.
+- **Mistral optionnel** : si `MISTRAL_API_KEY` est définie, le modèle reçoit la FAQ et le résumé déjà calculé (aucun identifiant, aucun outil) ; en cas d'erreur ou de délai dépassé (8 s), retour aux réponses préparées.
+- **Le bouton d'assistant est présent dans les trois espaces** ; sur mobile, il se masque quand le panneau est ouvert pour ne pas recouvrir le champ de saisie.
+
+## Conception par étapes
+
+- L'espace admin a été délégué à un sous-agent (fichiers isolés sous `src/app/admin`), relu puis intégré.
+- **Rafraîchissement de secours toutes les 15 s** sur les pages en direct, si la connexion Realtime tombe (réseau mobile, veille).

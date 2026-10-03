@@ -20,6 +20,7 @@ export const immobilier: VerticalConfig = {
     credential: "Justificatif",
     credentials: "Justificatifs",
   },
+  slotStatusLabels: { open: "En attente", filled: "Pourvue", cancelled: "Annulée", done: "Terminée" },
   credentials: [
     { id: "kbis", label: "Extrait Kbis de moins de 3 mois" },
     { id: "decennale", label: "Attestation d'assurance décennale" },

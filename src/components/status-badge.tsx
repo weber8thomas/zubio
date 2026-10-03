@@ -15,8 +15,14 @@ const OFFER_TONES: Record<OfferStatus, BadgeTone> = {
   expired: "neutral",
 };
 
-export function SlotStatusBadge({ status }: { status: SlotStatus }) {
-  return <Badge tone={SLOT_TONES[status]}>{SLOT_STATUS_LABELS[status]}</Badge>;
+export function SlotStatusBadge({
+  status,
+  labels = SLOT_STATUS_LABELS,
+}: {
+  status: SlotStatus;
+  labels?: Record<SlotStatus, string>;
+}) {
+  return <Badge tone={SLOT_TONES[status]}>{labels[status]}</Badge>;
 }
 
 export function OfferStatusBadge({ status }: { status: OfferStatus }) {

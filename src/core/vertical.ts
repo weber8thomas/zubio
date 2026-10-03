@@ -1,3 +1,5 @@
+import type { SlotStatus } from "./types";
+
 /**
  * Contrat qu'une verticale (un domaine métier) doit remplir pour réutiliser
  * le cœur : vocabulaire, compétences, justificatifs exigés, couleur d'accent.
@@ -36,6 +38,8 @@ export interface VerticalConfig {
   name: string;
   accent: { base: string; hover: string; light: string };
   labels: VerticalLabels;
+  /** Libellés de statut accordés au genre du mot « créneau » de la verticale (par défaut : masculin). */
+  slotStatusLabels?: Record<SlotStatus, string>;
   skills: SkillDefinition[];
   credentials: CredentialDefinition[];
   defaults: { durationMinutes: number; rateCents: number; searchRadiusKm: number };

@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/layout/app-shell";
 import type { NavItem } from "@/components/layout/nav-links";
+import { SupportChat } from "@/components/support-chat";
 import { requireProvider } from "@/lib/data/coach";
 
 const NAV: NavItem[] = [
@@ -12,7 +13,9 @@ const NAV: NavItem[] = [
 export default async function CoachLayout({ children }: LayoutProps<"/coach">) {
   const { provider } = await requireProvider();
   return (
-    <AppShell nav={NAV} userLabel={provider.display_name} spaceLabel="Espace coach">
+    <AppShell nav={NAV} userLabel={provider.display_name} spaceLabel="Espace coach"
+      floating={<SupportChat aiEnabled={Boolean(process.env.MISTRAL_API_KEY)} />}
+    >
       {children}
     </AppShell>
   );
