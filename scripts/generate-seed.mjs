@@ -65,6 +65,8 @@ const PATTERNS = {
   midi: [1, 2, 3, 4, 5].map((d) => [d, "11:30", "14:30"]),
   weekend: [[6, "08:00", "13:00"], [7, "09:00", "12:30"]],
   large: [1, 2, 3, 4, 5, 6].map((d) => [d, "07:00", "21:30"]),
+  // Coach de démo : disponible tous les jours, pour que le parcours de démo marche quel que soit le jour.
+  demo: [...[1, 2, 3, 4, 5, 6].map((d) => [d, "07:00", "21:30"]), [7, "09:00", "20:00"]],
   mixte: [[1, "07:00", "12:00"], [2, "17:00", "21:00"], [3, "07:00", "12:00"], [4, "17:00", "21:00"], [5, "07:00", "21:00"], [6, "08:30", "12:30"]],
 };
 
@@ -79,7 +81,7 @@ const BIOS = {
 
 // [nom, commune, compétences, justificatifs ([kind, statut, expiration?]), motif dispo, rayon, €/h min, note]
 const COACHES = [
-  [USERS.coach.name, "Bayonne", ["pilates", "yoga", "cours_collectifs"], [["pilates_cert", "verified"], ["cqp_als", "verified"], ["yoga_cert", "pending"]], "large", 15, 30, 4.8],
+  [USERS.coach.name, "Bayonne", ["pilates", "yoga", "cours_collectifs"], [["pilates_cert", "verified"], ["cqp_als", "verified"], ["yoga_cert", "pending"]], "demo", 15, 30, 4.8],
   ["Julen Iriarte", "Bayonne", ["cross_training", "musculation"], [["bpjeps_af", "verified"]], "soir", 12, 35, 4.7],
   ["Camille Durand", "Anglet", ["yoga"], [["yoga_cert", "verified"]], "matin", 10, 32, 4.9],
   ["Peio Etchegaray", "Biarritz", ["cross_training", "cours_collectifs"], [["bpjeps_af", "verified"]], "mixte", 15, 30, 4.5],
