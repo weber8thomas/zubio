@@ -48,7 +48,7 @@ function Overview() {
             <ul className="flex flex-col gap-2">
               {toVerify.map(({ c, cert }, i) => (
                 <motion.li key={`${c.id}:${cert.id}`} {...stagger(i)}>
-                  <Tap href={`#/admin/diplome/${c.id}/${cert.id}`} className="flex items-center gap-3 rounded-3xl bg-card p-3 pr-4 shadow-soft ring-1 ring-border/70">
+                  <Tap href={`#/admin/diplome/${c.id}/${cert.id}`} className="flex items-center gap-3 rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/70">
                     <Avatar id={c.id} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-bold">{c.name}</p>
@@ -77,10 +77,10 @@ function Overview() {
         </Section>
 
         <Section title="Activité">
-          <ul className="flex flex-col gap-2">
-            {[...slots].reverse().map((s, i) => (
+          <ul className="divide-y divide-border/70 overflow-hidden rounded-3xl bg-card ring-1 ring-border/70">
+            {[...slots].sort((a, b) => (b.date + b.start).localeCompare(a.date + a.start)).map((s, i) => (
               <motion.li key={s.id} {...stagger(i)}>
-                <Tap href={`#/admin/creneau/${s.id}`} className="flex items-center gap-3 rounded-3xl bg-card p-3 ring-1 ring-border/70">
+                <a href={`#/admin/creneau/${s.id}`} className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/50">
                   <ClassTile id={s.classId} size="sm" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">
@@ -92,7 +92,7 @@ function Overview() {
                     </p>
                   </div>
                   <Status status={s.status} />
-                </Tap>
+                </a>
               </motion.li>
             ))}
           </ul>
@@ -106,14 +106,14 @@ const REASONS = ["Document illisible", "Certification expirée", "Nom différent
 
 function Credential({ coachId, certId }: { coachId: string; certId: string }) {
   const state = useStore();
-  const [reason, setReason] = useState(REASONS[0]);
+  const [reason, setReason] = useState<string | null>(null);
   const coach = COACHES.find((c) => c.id === coachId);
   if (!coach) return <Empty>Coach introuvable.</Empty>;
   const status = certStatus(coach, certId, state.certs);
   const decide = (s: "verified" | "rejected") => {
     actions.decideCert(coachId, certId, s);
     toast[s === "verified" ? "success" : "info"](s === "verified" ? `Certification de ${coach.name} validée` : "Certification refusée", {
-      description: s === "verified" ? "Le coach peut postuler aux cours concernés." : `Motif envoyé : ${reason.toLowerCase()}.`,
+      description: s === "verified" ? "Le coach peut postuler aux cours concernés." : `Motif envoyé : ${reason?.toLowerCase()}.`,
     });
     go("/admin");
   };
@@ -134,7 +134,7 @@ function Credential({ coachId, certId }: { coachId: string; certId: string }) {
         </div>
       </div>
 
-      <motion.figure initial={{ rotate: -1.5, y: 12, opacity: 0 }} animate={{ rotate: -0.6, y: 0, opacity: 1 }} className="mt-6 rounded-3xl bg-white p-6 shadow-lift ring-1 ring-border/70">
+      <motion.figure initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mt-6 rounded-3xl bg-card p-6 shadow-lift ring-1 ring-border/70">
         <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
           <FileText className="size-4" aria-hidden /> justificatif.pdf · document fictif
         </div>
@@ -150,7 +150,7 @@ function Credential({ coachId, certId }: { coachId: string; certId: string }) {
           </div>
           <div>
             <dt className="text-muted-foreground">Numéro</dt>
-            <dd className="font-mono font-semibold">ZB-{coach.id.slice(0, 3).toUpperCase()}-{certId.length * 731}</dd>
+            <dd className="font-semibold tracking-wide tabular-nums">ZB-{coach.id.slice(0, 3).toUpperCase()}-{certId.length * 731}</dd>
           </div>
           <div>
             <dt className="text-muted-foreground">Délivrée</dt>
@@ -173,7 +173,7 @@ function Credential({ coachId, certId }: { coachId: string; certId: string }) {
                 </Chip>
               ))}
             </div>
-            <Button variant="outline" className="mt-3 w-full" onClick={() => decide("rejected")}>
+            <Button variant="outline" className="mt-3 w-full" disabled={!reason} onClick={() => decide("rejected")}>
               <X /> Refuser
             </Button>
           </div>

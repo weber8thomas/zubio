@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Minus, Plus, Search } from "lucide-react";
+import { Check, ChevronDown, Clock, Minus, Plus, Search } from "lucide-react";
 import { motion } from "motion/react";
 import { type ReactNode, useRef, useState } from "react";
 import { ClassTile } from "@/components/kit";
@@ -68,14 +68,19 @@ const USUAL_TIMES = ["07:00", "09:30", "12:15", "18:00", "18:30", "19:30"];
 export function TimeField({ value, onChange }: { value: string; onChange: (t: string) => void }) {
   return (
     <div>
-      <input
-        type="time"
-        step={300}
-        value={value}
-        onChange={(e) => e.target.value && onChange(e.target.value)}
-        aria-label="Heure de début"
-        className={cn(field, "font-heading text-xl font-extrabold tabular-nums")}
-      />
+      <label className={cn(field, "focus-within:ring-2 focus-within:ring-primary")}>
+        <span className="flex size-9 items-center justify-center rounded-[11px] bg-muted text-ink-soft">
+          <Clock className="size-[18px]" aria-hidden />
+        </span>
+        <input
+          type="time"
+          step={300}
+          value={value}
+          onChange={(e) => e.target.value && onChange(e.target.value)}
+          aria-label="Heure de début"
+          className="flex-1 bg-transparent font-heading text-xl font-extrabold tabular-nums outline-none [&::-webkit-calendar-picker-indicator]:hidden"
+        />
+      </label>
       <div className="scroll-row -mx-1 mt-2 flex gap-1.5 overflow-x-auto px-1 pb-1">
         {USUAL_TIMES.map((t) => (
           <Chip key={t} active={t === value} onClick={() => onChange(t)} small>
@@ -97,9 +102,9 @@ export function DurationField({ value, onChange, start }: { value: number; onCha
         </span>
       </div>
       <Slider className="mt-4" value={[value]} min={15} max={180} step={5} onValueChange={([v]) => onChange(v)} aria-label="Durée en minutes" />
-      <div className="mt-3 flex gap-1.5">
+      <div className="mt-3 grid grid-cols-5 gap-1.5">
         {[30, 45, 55, 60, 90].map((m) => (
-          <Chip key={m} active={m === value} onClick={() => onChange(m)} small>
+          <Chip key={m} active={m === value} onClick={() => onChange(m)} small className="w-full px-0">
             {fmtDuration(m)}
           </Chip>
         ))}
@@ -157,7 +162,7 @@ export function Stepper({ value, onChange, min, max, suffix, label }: { value: n
   );
 }
 
-export function Chip({ active, onClick, children, small }: { active: boolean; onClick: () => void; children: ReactNode; small?: boolean }) {
+export function Chip({ active, onClick, children, small, className }: { active: boolean; onClick: () => void; children: ReactNode; small?: boolean; className?: string }) {
   return (
     <motion.button
       type="button"
@@ -168,6 +173,7 @@ export function Chip({ active, onClick, children, small }: { active: boolean; on
         "shrink-0 rounded-full font-semibold whitespace-nowrap transition-colors",
         small ? "h-9 px-3 text-[13px]" : "h-11 px-4 text-sm",
         active ? "bg-foreground text-background" : "bg-card ring-1 ring-border/70 hover:ring-border-strong",
+        className,
       )}
     >
       {children}

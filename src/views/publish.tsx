@@ -158,7 +158,7 @@ export function PublishWizard() {
             </div>
             <div className="mt-4">
               <Label>Un mot pour le coach</Label>
-              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={280} placeholder="Studio 2, playlist à jour, accès par l'entrée arrière…" className="min-h-20 rounded-2xl" />
+              <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={280} placeholder="Studio 2, playlist à jour, accès par l'entrée arrière…" className="min-h-20" />
             </div>
           </details>
         </div>

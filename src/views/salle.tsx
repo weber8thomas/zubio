@@ -2,12 +2,11 @@ import { CalendarCheck, Inbox, LayoutGrid, MapPin, Plus, PlusCircle, Search, Sta
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Avatar, AvatarStack, BackLink, ClassTile, Empty, PageTitle, Section, Stat, Status, Tap, stagger } from "@/components/kit";
+import { Avatar, AvatarStack, BackLink, ClassTile, Empty, PageTitle, Section, SlotCard, Stat, Status, Tap, stagger } from "@/components/kit";
 import { MapView, RadiusControl } from "@/components/map";
 import { CoachProfile, Confirmed, SlotFacts, SlotHeader, teachable } from "@/components/profiles";
 import { Shell } from "@/components/shell";
 import { PublishWizard } from "./publish";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CATEGORIES, classById } from "@/data/classes";
@@ -34,46 +33,33 @@ export function SalleSpace({ route }: { route: string[] }) {
 }
 
 const pendingFor = (s: State, slotId: string) => s.applications.filter((a) => a.slotId === slotId && a.status === "pending");
+const candidatures = (n: number) => `${n} candidature${n > 1 ? "s" : ""}`;
 
-function SlotCard({ slot, i }: { slot: Slot; i: number }) {
+function SlotItem({ slot, i }: { slot: Slot; i: number }) {
   const state = useStore();
   const apps = pendingFor(state, slot.id);
-  const c = classById(slot.classId);
   return (
     <motion.li {...stagger(i)}>
-      <Tap href={`#/salle/creneau/${slot.id}`} className="rounded-3xl bg-card p-3 pr-4 shadow-soft ring-1 ring-border/70">
-        <div className="flex items-center gap-3">
-          <ClassTile id={slot.classId} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2">
-              <p className="truncate font-bold">{c.label}</p>
-              <span className="ml-auto font-heading font-extrabold tabular-nums">{slot.price} €</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {dayLabel(slot.date)} · {slot.start}–{endOf(slot.start, slot.duration)}
-            </p>
-          </div>
-        </div>
-        <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/70 pt-3">
-          {slot.status === "open" ? (
-            apps.length ? (
-              <Status status="candidates" label={`${apps.length} candidature${apps.length > 1 ? "s" : ""}`} />
+      <SlotCard
+        href={`#/salle/creneau/${slot.id}`}
+        classId={slot.classId}
+        title={classById(slot.classId).label}
+        when={`${dayLabel(slot.date)} · ${slot.start}–${endOf(slot.start, slot.duration)}`}
+        price={slot.price}
+        footer={
+          <>
+            {slot.status === "open" ? apps.length ? <Status status="candidates" label={candidatures(apps.length)} /> : <Status status="open" /> : <Status status={slot.status} />}
+            {slot.coachId ? (
+              <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
+                <span className="truncate">{coachById(slot.coachId).name}</span>
+                <Avatar id={slot.coachId} size="sm" />
+              </span>
             ) : (
-              <Status status="open" />
-            )
-          ) : (
-            <Status status={slot.status} />
-          )}
-          {slot.coachId ? (
-            <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
-              <span className="truncate">{coachById(slot.coachId).name}</span>
-              <Avatar id={slot.coachId} size="sm" />
-            </span>
-          ) : (
-            <AvatarStack ids={apps.map((a) => a.coachId)} />
-          )}
-        </div>
-      </Tap>
+              <AvatarStack ids={apps.map((a) => a.coachId)} />
+            )}
+          </>
+        }
+      />
     </motion.li>
   );
 }
@@ -85,6 +71,7 @@ function Home() {
   const open = mine.filter((s) => s.status === "open");
   const filled = mine.filter((s) => s.status === "filled");
   const toReview = open.reduce((n, s) => n + pendingFor(state, s.id).length, 0);
+  const firstToReview = open.find((s) => pendingFor(state, s.id).length);
 
   return (
     <>
@@ -109,7 +96,7 @@ function Home() {
 
       <div className="mt-4 grid grid-cols-3 gap-3">
         <Stat label="À venir" value={mine.length} icon={CalendarCheck} />
-        <Stat label="À examiner" value={toReview} icon={Inbox} />
+        <Stat label="À examiner" value={toReview} icon={Inbox} href={firstToReview && `#/salle/creneau/${firstToReview.id}`} />
         <Stat label="Confirmés" value={filled.length} icon={UserRoundCheck} />
       </div>
 
@@ -117,7 +104,7 @@ function Home() {
         {open.length ? (
           <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {open.map((s, i) => (
-              <SlotCard key={s.id} slot={s} i={i} />
+              <SlotItem key={s.id} slot={s} i={i} />
             ))}
           </ul>
         ) : (
@@ -127,7 +114,7 @@ function Home() {
       <Section title="Confirmés">
         <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {filled.map((s, i) => (
-            <SlotCard key={s.id} slot={s} i={i} />
+            <SlotItem key={s.id} slot={s} i={i} />
           ))}
         </ul>
       </Section>
@@ -141,6 +128,7 @@ function SlotPage({ id }: { id: string }) {
   const venue = myVenue();
   if (!slot) return <Empty>Créneau introuvable.</Empty>;
   const apps = state.applications.filter((a) => a.slotId === id && a.status !== "withdrawn");
+  const pending = apps.filter((a) => a.status === "pending").length;
   const matches = matchesFor(state, slot);
   const open = slot.status === "open";
 
@@ -153,7 +141,7 @@ function SlotPage({ id }: { id: string }) {
     <>
       <BackLink href="#/salle">Tableau de bord</BackLink>
       <div className="mt-2">
-        <SlotHeader slot={slot} status={<Status status={slot.status === "open" && apps.some((a) => a.status === "pending") ? "candidates" : slot.status} />} />
+        <SlotHeader slot={slot} status={open && pending ? <Status status="candidates" label={candidatures(pending)} /> : <Status status={slot.status} />} />
       </div>
 
       <AnimatePresence>
@@ -165,37 +153,40 @@ function SlotPage({ id }: { id: string }) {
       </AnimatePresence>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="overflow-hidden rounded-3xl ring-1 ring-border/70 lg:sticky lg:top-36 lg:self-start">
-          <MapView
-            className="h-72 sm:h-80"
-            center={venue}
-            radiusKm={open ? slot.radiusKm : undefined}
-            zoomKm={Math.max(slot.radiusKm, 4)}
-            markers={[
-              { id: "venue", kind: "venue", lat: venue.lat, lng: venue.lng },
-              ...COACHES.map((c) => ({
-                id: c.id,
-                kind: "coach" as const,
-                lat: c.lat,
-                lng: c.lng,
-                label: c.id,
-                state: slot.coachId === c.id ? ("selected" as const) : apps.some((a) => a.coachId === c.id) || matches.some((m) => m.coach.id === c.id) ? ("active" as const) : ("idle" as const),
-                onClick: () => go(`/salle/coach/${c.id}`),
-              })),
-            ]}
-          />
-          {open && <RadiusControl value={slot.radiusKm} onChange={(km) => actions.setRadius(slot.id, km)} count={matches.length} />}
+        <div className="lg:sticky lg:top-36 lg:self-start">
+          <h2 className="mb-3 font-heading text-[17px] font-semibold">Zone de recherche</h2>
+          <div className="overflow-hidden rounded-3xl ring-1 ring-border/70">
+            <MapView
+              className="h-72 sm:h-80"
+              center={venue}
+              radiusKm={open ? slot.radiusKm : undefined}
+              zoomKm={Math.max(slot.radiusKm, 4)}
+              markers={[
+                { id: "venue", kind: "venue", lat: venue.lat, lng: venue.lng },
+                ...COACHES.map((c) => ({
+                  id: c.id,
+                  kind: "coach" as const,
+                  lat: c.lat,
+                  lng: c.lng,
+                  label: c.id,
+                  state: slot.coachId === c.id ? ("selected" as const) : apps.some((a) => a.coachId === c.id) || matches.some((m) => m.coach.id === c.id) ? ("active" as const) : ("idle" as const),
+                  onClick: () => go(`/salle/coach/${c.id}`),
+                })),
+              ]}
+            />
+            {open && <RadiusControl value={slot.radiusKm} onChange={(km) => actions.setRadius(slot.id, km)} count={matches.length} />}
+          </div>
         </div>
 
         <div>
+          <h2 className="mb-3 font-heading text-[17px] font-semibold">Candidatures {apps.length > 0 && `· ${apps.length}`}</h2>
           {slot.instant && open && (
-            <p className="mb-4 flex items-start gap-2 rounded-3xl bg-primary-soft p-4 text-sm text-primary-ink">
+            <p className="mb-3 flex items-start gap-2 rounded-3xl bg-primary-soft p-4 text-sm text-primary-ink">
               <Zap className="mt-0.5 size-4 shrink-0" aria-hidden />
               Réservation instantanée : le premier coach compatible qui réserve est confirmé automatiquement.
             </p>
           )}
-          <h2 className="font-heading text-[17px] font-semibold">Candidatures {apps.length > 0 && `· ${apps.length}`}</h2>
-          <ul className="mt-3 flex flex-col gap-2">
+          <ul className="flex flex-col gap-2">
             <AnimatePresence initial={false}>
               {apps.map((a, i) => {
                 const c = coachById(a.coachId);
@@ -240,9 +231,8 @@ function SlotPage({ id }: { id: string }) {
           {!apps.length && <Empty>Pas encore de candidature. {matches.length} coach{matches.length > 1 ? "s" : ""} compatible{matches.length > 1 ? "s ont" : " a"} été prévenu{matches.length > 1 ? "s" : ""}.</Empty>}
           {open && (
             <div className="mt-3 flex items-center gap-3 rounded-3xl bg-muted/60 p-3 pl-4">
-              <p className="flex-1 text-sm text-muted-foreground">Pour la démo, faites postuler des coachs compatibles.</p>
-              <Badge variant="outline">Démo</Badge>
-              <Button variant="outline" onClick={simulate}>
+              <p className="flex-1 text-sm text-muted-foreground">Démo : faire postuler des coachs compatibles.</p>
+              <Button size="sm" variant="outline" onClick={simulate}>
                 Simuler
               </Button>
             </div>
@@ -274,7 +264,7 @@ function Catalog() {
       <PageTitle sub={`${list.length} coachs autour de votre salle, du plus proche au plus loin.`}>Coachs du coin</PageTitle>
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, cours (BodyPump, aquabike…)" className="h-12 rounded-full bg-card pl-10" aria-label="Rechercher un coach" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, cours (BodyPump, aquabike…)" className="h-12 rounded-full pl-10" aria-label="Rechercher un coach" />
       </div>
       <div className="scroll-row -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
         <CatChip active={!cat} onClick={() => setCat(null)}>
@@ -356,16 +346,17 @@ function CoachPage({ id }: { id: string }) {
                 <ul className="mt-2 flex flex-col gap-2">
                   {open.map((s) => {
                     const f = fit(coach, s, venue, state.certs);
+                    const label = classById(s.classId).label;
                     return (
                       <li key={s.id} className="flex items-center gap-3">
                         <ClassTile id={s.classId} size="sm" />
                         <span className="min-w-0 flex-1 text-sm">
-                          <b>{classById(s.classId).label}</b> · {dayLabel(s.date)} {s.start}
-                          {!f.ok && <span className="block text-xs text-warning-ink">{f.reason}</span>}
+                          <b>{label}</b> · {dayLabel(s.date)} {s.start}
+                          {!f.ok && <span className="block text-xs text-warning-ink">{f.issues.includes("Certification") ? `Certification ${label} manquante` : f.reason}</span>}
                         </span>
                         <Button
                           size="sm"
-                          variant={invited(s.id) ? "secondary" : "default"}
+                          variant={invited(s.id) ? "secondary" : f.ok ? "default" : "outline"}
                           disabled={invited(s.id)}
                           onClick={() => {
                             actions.invite(s.id, id);

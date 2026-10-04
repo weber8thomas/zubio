@@ -3,10 +3,11 @@ import { COACHES, coachById, ME } from "@/data/coaches";
 import { INITIAL_APPLICATIONS, INITIAL_INVITES, initialSlots, MY_VENUE_ID } from "@/data/seed";
 import type { Application, CertStatus, Invite, Slot } from "@/data/types";
 import { VENUES } from "@/data/venues";
+import type { InvoiceStatus } from "./invoicing";
 import { type CertOverrides, fit } from "./matching";
 
 // État de la démo, gardé dans le navigateur (localStorage). Aucun serveur.
-export type State = { slots: Slot[]; applications: Application[]; invites: Invite[]; certs: CertOverrides };
+export type State = { slots: Slot[]; applications: Application[]; invites: Invite[]; certs: CertOverrides; invoices?: Record<string, InvoiceStatus> };
 
 const KEY = "zubio-demo-v3";
 const initial = (): State => ({ slots: initialSlots(), applications: INITIAL_APPLICATIONS, invites: INITIAL_INVITES, certs: {} });
@@ -107,6 +108,15 @@ export const actions = {
 
   invite(slotId: string, coachId: string) {
     if (!state.invites.some((i) => i.slotId === slotId && i.coachId === coachId)) set({ invites: [...state.invites, { slotId, coachId }] });
+  },
+
+  /** Démo : la séance a eu lieu, les factures sont émises. */
+  complete(slotId: string) {
+    set({ slots: state.slots.map((s) => (s.id === slotId ? { ...s, status: "done" } : s)) });
+  },
+
+  setInvoiceStatus(invoiceId: string, status: InvoiceStatus) {
+    set({ invoices: { ...state.invoices, [invoiceId]: status } });
   },
 
   decideCert(coachId: string, certId: string, status: CertStatus) {

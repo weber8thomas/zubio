@@ -1,8 +1,8 @@
-import { AlertCircle, CalendarDays, CalendarPlus, Check, Compass, List, LocateFixed, Map as MapIcon, MapPin, Phone, SlidersHorizontal, UserRound, Wallet, X, Zap } from "lucide-react";
+import { AlertCircle, CalendarDays, CalendarPlus, Check, ChevronDown, Compass, List, LocateFixed, Map as MapIcon, MapPin, Phone, SlidersHorizontal, UserRound, Wallet, X, Zap } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { BackLink, ClassTile, Empty, PageTitle, Section, Status, Tap, stagger } from "@/components/kit";
+import { BackLink, ClassTile, Empty, PageTitle, Section, SlotCard, Status, Tap, stagger } from "@/components/kit";
 import { MapView } from "@/components/map";
 import { Chip } from "@/components/pickers";
 import { CoachProfile, Confirmed, SlotFacts, SlotHeader } from "@/components/profiles";
@@ -86,7 +86,7 @@ function Explore() {
 
   return (
     <>
-      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Trouver un créneau</h1>
+      <h1 className="font-heading text-[26px] leading-tight font-extrabold text-balance sm:text-[32px]">Trouver un créneau</h1>
 
       <div className="mt-5 overflow-hidden rounded-3xl bg-card shadow-soft ring-1 ring-border/70">
         <button type="button" onClick={locate} className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/50">
@@ -109,8 +109,11 @@ function Explore() {
         </div>
         <button type="button" onClick={() => setFilters(true)} className="flex w-full items-center gap-3 border-t border-border/70 px-4 py-3.5 text-left hover:bg-muted/50">
           <SlidersHorizontal className="size-5 text-muted-foreground" aria-hidden />
-          <span className="flex-1 font-semibold">
-            {cat ? CATEGORIES[cat].label : "Tous les cours"} · {maxKm} km{onlyFit ? " · compatibles" : ""}
+          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-semibold">
+              {cat ? CATEGORIES[cat].label : "Tous les cours"} · {maxKm} km
+            </span>
+            {onlyFit && <FitPill>Compatibles</FitPill>}
           </span>
           {active > 0 && <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">{active}</span>}
         </button>
@@ -157,7 +160,7 @@ function Explore() {
         <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {open.map(({ s, v, f, d }, i) => (
             <motion.li key={s.id} layout {...stagger(i)}>
-              <SlotTile slot={s} venueName={v.name} where={`${v.town} · ${km(d)}`} fitOk={f.ok} reason={f.reason} applied={!!myApp(state, s.id)} invited={invitedTo(state, s.id)} />
+              <SlotTile slot={s} venueName={v.name} where={`${v.town} · ${km(d)}`} fitOk={f.ok} reason={f.reason} applied={!!myApp(state, s.id)} invited={invitedTo(state, s.id)} showFit={!onlyFit || !f.ok} />
             </motion.li>
           ))}
         </ul>
@@ -190,6 +193,9 @@ function Explore() {
               </div>
             </div>
             <label className="flex items-center gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-success-soft text-success-ink">
+                <Check className="size-[18px]" aria-hidden />
+              </span>
               <span className="flex-1">
                 <span className="block font-semibold">Compatibles uniquement</span>
                 <span className="block text-sm text-muted-foreground">Certification, disponibilité et tarif minimum.</span>
@@ -206,47 +212,53 @@ function Explore() {
   );
 }
 
+/** Pastille « compatible » : distincte des filtres de cours. */
+const FitPill = ({ children = "Compatible" }: { children?: string }) => (
+  <span className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-success-soft px-2.5 text-[13px] font-semibold whitespace-nowrap text-success-ink">
+    <Check className="size-3.5" aria-hidden />
+    {children}
+  </span>
+);
+
 /** Carte résultat façon frise : début ○ ── fin ●, cours et salle, prix. */
-function SlotTile({ slot, venueName, where, fitOk, reason, applied, invited }: { slot: Slot; venueName: string; where: string; fitOk: boolean; reason: string; applied: boolean; invited: boolean }) {
+function SlotTile({ slot, venueName, where, fitOk, reason, applied, invited, showFit }: { slot: Slot; venueName: string; where: string; fitOk: boolean; reason: string; applied: boolean; invited: boolean; showFit: boolean }) {
   return (
-    <Tap href={`#/coach/creneau/${slot.id}`} className="h-full rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/70">
-      <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{dayLabel(slot.date)}</p>
-      <div className="flex gap-3">
-        <div className="flex w-12 shrink-0 flex-col items-end justify-between py-0.5 text-sm font-bold tabular-nums">
-          <span>{slot.start}</span>
-          <span className="text-muted-foreground">{endOf(slot.start, slot.duration)}</span>
+    <SlotCard
+      href={`#/coach/creneau/${slot.id}`}
+      classId={slot.classId}
+      title={classById(slot.classId).label}
+      when={dayLabel(slot.date)}
+      times={[slot.start, endOf(slot.start, slot.duration)]}
+      price={slot.price}
+      sub={
+        <>
+          <p className="truncate font-medium text-foreground">{venueName}</p>
+          <p className="truncate">{where}</p>
+        </>
+      }
+      footer={
+        <div className="flex flex-wrap items-center gap-1.5">
+          <ClassTile id={slot.classId} size="sm" />
+          {applied ? (
+            <Status status="pending" label="Candidature envoyée" />
+          ) : fitOk ? (
+            showFit && <FitPill />
+          ) : (
+            <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-muted px-2.5 text-[13px] font-semibold text-muted-foreground">
+              <AlertCircle className="size-3.5" aria-hidden />
+              {reason}
+            </span>
+          )}
+          {slot.instant && (
+            <span className="inline-flex h-7 items-center gap-1 rounded-full bg-primary-soft px-2.5 text-[13px] font-semibold text-primary-ink">
+              <Zap className="size-3.5" aria-hidden /> Instantané
+            </span>
+          )}
+          {invited && <span className="inline-flex h-7 items-center rounded-full bg-primary-soft px-2.5 text-[13px] font-semibold text-primary-ink">Invité·e</span>}
+          {slot.urgent && <span className="inline-flex h-7 items-center rounded-full bg-warning-soft px-2.5 text-[13px] font-semibold text-warning-ink">Urgent</span>}
         </div>
-        <div className="flex flex-col items-center py-1.5" aria-hidden>
-          <span className="size-3 rounded-full border-[3px] border-primary bg-card" />
-          <span className="w-[3px] flex-1 rounded-full bg-primary/30" />
-          <span className="size-3 rounded-full bg-primary" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[17px] font-bold">{classById(slot.classId).label}</p>
-          <p className="truncate text-sm font-medium">{venueName}</p>
-          <p className="truncate text-sm text-muted-foreground">{where}</p>
-        </div>
-        <p className="font-heading text-xl font-extrabold tabular-nums">{slot.price} €</p>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/70 pt-3">
-        <ClassTile id={slot.classId} size="sm" />
-        {applied ? (
-          <Status status="pending" label="Candidature envoyée" />
-        ) : (
-          <span className={cn("inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold", fitOk ? "bg-success-soft text-success-ink" : "bg-muted text-muted-foreground")}>
-            {fitOk ? <Check className="size-3.5" aria-hidden /> : <AlertCircle className="size-3.5" aria-hidden />}
-            {fitOk ? "Compatible" : reason}
-          </span>
-        )}
-        {slot.instant && (
-          <span className="inline-flex h-7 items-center gap-1 rounded-full bg-primary-soft px-2.5 text-[13px] font-semibold text-primary-ink">
-            <Zap className="size-3.5" aria-hidden /> Instantané
-          </span>
-        )}
-        {invited && <span className="inline-flex h-7 items-center rounded-full bg-primary-soft px-2.5 text-[13px] font-semibold text-primary-ink">Invité·e</span>}
-        {slot.urgent && <span className="inline-flex h-7 items-center rounded-full bg-warning-soft px-2.5 text-[13px] font-semibold text-warning-ink">Urgent</span>}
-      </div>
-    </Tap>
+      }
+    />
   );
 }
 
@@ -286,65 +298,65 @@ function SlotPage({ id }: { id: string }) {
               ]}
             />
             <p className="flex items-center gap-2 bg-card px-4 py-3 text-sm">
-              <MapPin className="size-4 text-primary" aria-hidden />
-              <span className="min-w-0 flex-1 truncate">
-                {venue.address}
-              </span>
-              <span className="font-semibold">{km(f.km)}</span>
+              <MapPin className="size-4 shrink-0 text-primary" aria-hidden />
+              <span className="line-clamp-2 min-w-0 flex-1">{venue.address}</span>
+              <span className="shrink-0 font-semibold">{km(f.km)}</span>
             </p>
           </div>
           <SlotFacts slot={slot} />
         </div>
 
-        <div>
-          <AnimatePresence mode="wait" initial={false}>
-            {slot.status !== "open" ? null : app ? (
-              <motion.div key="applied" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="rounded-3xl bg-warning-soft p-5">
-                <p className="font-heading text-lg font-semibold">Candidature envoyée</p>
-                <p className="mt-1 text-sm text-ink-soft">La salle compare les profils et vous répond vite. Vous êtes prévenu·e dès qu'elle choisit.</p>
-                <Button variant="outline" className="mt-4" onClick={() => (actions.withdraw(app.id), toast("Candidature retirée"))}>
-                  <X /> Retirer ma candidature
-                </Button>
-              </motion.div>
-            ) : (
-              <motion.div key="apply" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-card p-5 ring-1 ring-border/70">
-                <p className="font-heading text-lg font-semibold">{slot.instant ? "Réservation instantanée" : "Postuler"}</p>
-                <p className={cn("mt-2 flex items-center gap-1.5 text-sm font-semibold", f.ok ? "text-success-ink" : "text-warning-ink")}>
-                  {f.ok ? <Check className="size-4" /> : <AlertCircle className="size-4" />}
-                  {f.ok ? "Votre profil correspond à ce créneau." : `À vérifier : ${f.reason.toLowerCase()}`}
-                </p>
-                <Textarea value={message} onChange={(e) => setMessage(e.target.value)} maxLength={240} placeholder="Un mot pour la salle (facultatif)" className="mt-4 min-h-20 rounded-2xl" />
-                {slot.instant ? (
-                  <Button
-                    size="lg"
-                    className="mt-4 w-full"
-                    disabled={!f.ok}
-                    onClick={() => {
-                      actions.book(slot.id);
-                      toast.success("Réservé, c'est confirmé", { description: `${venue.name} est prévenu·e.` });
-                      go(`/coach/mission/${slot.id}`);
-                    }}
-                  >
-                    <Zap /> Réserver pour {slot.price} €
+        {slot.status === "open" && (
+          <div className="order-first lg:sticky lg:top-36 lg:order-none lg:self-start">
+            <AnimatePresence mode="wait" initial={false}>
+              {app ? (
+                <motion.div key="applied" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="rounded-3xl bg-warning-soft p-5">
+                  <p className="font-heading text-lg font-semibold">En attente de la salle</p>
+                  <p className="mt-1 text-sm text-ink-soft">La salle compare les profils et vous répond vite. Vous êtes prévenu·e dès qu'elle choisit.</p>
+                  <Button variant="outline" className="mt-4" onClick={() => (actions.withdraw(app.id), toast("Candidature retirée"))}>
+                    <X /> Retirer ma candidature
                   </Button>
-                ) : (
-                  <Button
-                    size="lg"
-                    className="mt-4 w-full"
-                    disabled={!f.ok}
-                    onClick={() => {
-                      actions.apply(slot.id, message);
-                      toast.success("Candidature envoyée", { description: `${venue.name} va comparer les profils.` });
-                    }}
-                  >
-                    Postuler pour {slot.price} €
-                  </Button>
-                )}
-                {!f.ok && <p className="mt-2 text-center text-xs text-muted-foreground">Complétez votre profil ou vos disponibilités pour postuler.</p>}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+                </motion.div>
+              ) : (
+                <motion.div key="apply" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-card p-5 ring-1 ring-border/70">
+                  <p className="font-heading text-lg font-semibold">{slot.instant ? "Réservation instantanée" : "Postuler"}</p>
+                  <p className={cn("mt-2 flex items-center gap-1.5 text-sm font-semibold", f.ok ? "text-success-ink" : "text-warning-ink")}>
+                    {f.ok ? <Check className="size-4" /> : <AlertCircle className="size-4" />}
+                    {f.ok ? "Votre profil correspond à ce créneau." : `À vérifier : ${f.reason.toLowerCase()}`}
+                  </p>
+                  <Textarea value={message} onChange={(e) => setMessage(e.target.value)} maxLength={240} placeholder="Un mot pour la salle (facultatif)" className="mt-4 min-h-20" />
+                  {slot.instant ? (
+                    <Button
+                      size="lg"
+                      className="mt-4 w-full"
+                      disabled={!f.ok}
+                      onClick={() => {
+                        actions.book(slot.id);
+                        toast.success("Réservé, c'est confirmé", { description: `${venue.name} est prévenu·e.` });
+                        go(`/coach/mission/${slot.id}`);
+                      }}
+                    >
+                      <Zap /> Réserver pour {slot.price} €
+                    </Button>
+                  ) : (
+                    <Button
+                      size="lg"
+                      className="mt-4 w-full"
+                      disabled={!f.ok}
+                      onClick={() => {
+                        actions.apply(slot.id, message);
+                        toast.success("Candidature envoyée", { description: `${venue.name} va comparer les profils.` });
+                      }}
+                    >
+                      Postuler pour {slot.price} €
+                    </Button>
+                  )}
+                  {!f.ok && <p className="mt-2 text-center text-xs text-muted-foreground">Complétez votre profil ou vos disponibilités pour postuler.</p>}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
       </div>
     </>
   );
@@ -365,7 +377,7 @@ function Planning() {
               const v = venueById(s.venueId);
               return (
                 <motion.li key={s.id} {...stagger(i)}>
-                  <Tap href={`#/coach/mission/${s.id}`} className="flex items-center gap-3 rounded-3xl bg-card p-3 pr-4 shadow-soft ring-1 ring-border/70">
+                  <Tap href={`#/coach/mission/${s.id}`} className="flex h-full items-center gap-3 rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/70">
                     <ClassTile id={s.classId} />
                     <div className="min-w-0 flex-1">
                       <p className="font-bold">
@@ -375,7 +387,6 @@ function Planning() {
                         {classById(s.classId).label} · {v.name}
                       </p>
                     </div>
-                    <Status status="filled" />
                   </Tap>
                 </motion.li>
               );
@@ -388,16 +399,21 @@ function Planning() {
 
       <Section title="Mes candidatures">
         {apps.length ? (
-          <ul className="flex flex-col gap-2">
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {apps.map((a, i) => {
               const s = slotById(state, a.slotId)!;
               return (
                 <motion.li key={a.id} {...stagger(i)}>
-                  <Tap href={`#/coach/creneau/${s.id}`} className="flex items-center gap-3 rounded-3xl bg-card p-3 pr-4 ring-1 ring-border/70">
-                    <ClassTile id={s.classId} size="sm" />
-                    <p className="min-w-0 flex-1 truncate text-sm">
-                      <b>{classById(s.classId).label}</b> · {venueById(s.venueId).name} · {dayLabel(s.date)}
-                    </p>
+                  <Tap href={`#/coach/creneau/${s.id}`} className="flex h-full items-center gap-3 rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/70">
+                    <ClassTile id={s.classId} />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold">
+                        {dayLabel(s.date)} · {s.start}
+                      </p>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {classById(s.classId).label} · {venueById(s.venueId).name}
+                      </p>
+                    </div>
                     <Status status={a.status} />
                   </Tap>
                 </motion.li>
@@ -440,19 +456,25 @@ function Mission({ id }: { id: string }) {
         <SlotHeader slot={slot} status={<Status status={slot.status} />} />
       </div>
 
-      <ol className="mt-6 flex items-center">
+      <ol className="mt-6 grid grid-cols-4">
         {steps.map((s, i) => (
-          <li key={s} className="flex flex-1 flex-col items-center gap-1.5 text-xs font-medium last:flex-none">
-            <div className="flex w-full items-center">
+          <li key={s} className="relative flex flex-col items-center gap-1.5 text-center text-xs font-medium text-muted-foreground">
+            {i > 0 && (
               <motion.span
-                initial={{ scale: 0.6 }}
-                animate={{ scale: 1 }}
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
                 transition={{ delay: i * 0.12 }}
-                className={cn("size-4 shrink-0 rounded-full", i < 3 ? "bg-success" : "border-[3px] border-primary bg-card")}
+                className={cn("absolute top-1.5 right-1/2 h-1 w-full origin-left", i < 3 ? "bg-success" : "bg-border")}
+                aria-hidden
               />
-              {i < steps.length - 1 && <motion.span initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.1 + i * 0.12 }} className={cn("h-1 flex-1 origin-left", i < 2 ? "bg-success" : "bg-border")} />}
-            </div>
-            <span className="self-start text-muted-foreground">{s}</span>
+            )}
+            <motion.span
+              initial={{ scale: 0.6 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: i * 0.12 }}
+              className={cn("relative z-10 size-4 rounded-full", i < 3 ? "bg-success" : "border-[3px] border-primary bg-card")}
+            />
+            {s}
           </li>
         ))}
       </ol>
@@ -461,10 +483,8 @@ function Mission({ id }: { id: string }) {
         <div className="overflow-hidden rounded-3xl ring-1 ring-border/70">
           <MapView className="h-64" center={v} zoomKm={1.2} markers={[{ id: "venue", kind: "venue", lat: v.lat, lng: v.lng }]} />
           <div className="flex items-center gap-2 bg-card px-4 py-3 text-sm">
-            <MapPin className="size-4 text-primary" aria-hidden />
-            <span className="min-w-0 flex-1 truncate">
-              {v.address}
-            </span>
+            <MapPin className="size-4 shrink-0 text-primary" aria-hidden />
+            <span className="line-clamp-2 min-w-0 flex-1">{v.address}</span>
           </div>
         </div>
         <div className="space-y-3">
@@ -493,8 +513,8 @@ function Profile() {
   return (
     <>
       <CoachProfile coachId={ME.id} overrides={state.certs} />
-      <Section title="Revenus" action={<Badge variant="outline">Démo</Badge>}>
-        <button type="button" onClick={() => setShowIncome(!showIncome)} className="flex w-full items-center gap-3 rounded-3xl bg-card p-4 text-left ring-1 ring-border/70">
+      <Section title="Revenus" action={<Badge variant="outline">Démo</Badge>} className="max-w-xl">
+        <button type="button" onClick={() => setShowIncome(!showIncome)} aria-expanded={showIncome} className="flex w-full items-center gap-3 rounded-3xl bg-card p-4 text-left ring-1 ring-border/70">
           <span className="flex size-10 items-center justify-center rounded-[12px] bg-muted text-ink-soft">
             <Wallet className="size-5" aria-hidden />
           </span>
@@ -503,6 +523,7 @@ function Profile() {
             <span className="text-sm text-muted-foreground">{thisMonth.length} séances</span>
           </span>
           <span className="font-heading text-xl font-extrabold tabular-nums">{earned + planned} €</span>
+          <ChevronDown className={cn("size-5 text-muted-foreground transition-transform", showIncome && "rotate-180")} aria-hidden />
         </button>
         <AnimatePresence initial={false}>
           {showIncome && (

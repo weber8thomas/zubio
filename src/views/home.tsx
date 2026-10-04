@@ -1,4 +1,4 @@
-import { ArrowRight, BellRing, Building2, CalendarPlus, Handshake, Loader2, RotateCcw, Search, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowRight, BellRing, Building2, CalendarPlus, ChevronRight, Handshake, Loader2, RotateCcw, Search, ShieldCheck, UserRound } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -59,10 +59,10 @@ export function HomePage() {
 
       <section className="grid grid-cols-1 items-center gap-8 pt-6 pb-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:pt-12">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-          <h1 className="font-heading text-[32px] leading-[1.05] font-extrabold sm:text-[48px] lg:text-[54px]">
+          <h1 className="font-heading text-[32px] leading-[1.05] font-extrabold sm:text-[48px] lg:text-[46px]">
             Le bon coach,
             <br />
-            <span className="text-primary-ink">au bon créneau.</span>
+            <span className="whitespace-nowrap text-primary-ink">au bon créneau.</span>
           </h1>
           <p className="mt-5 max-w-md text-lg text-ink-soft">Un coach absent ce soir ? Publiez le créneau, les coachs certifiés du coin postulent, vous choisissez.</p>
 
@@ -139,22 +139,25 @@ export function HomePage() {
             transition={{ delay: 0.2 + i * 0.06 }}
             whileHover={{ y: -4 }}
             whileTap={{ scale: 0.98 }}
-            className="group flex flex-col rounded-[26px] bg-card p-5 shadow-soft ring-1 ring-border/70 transition-shadow hover:shadow-lift"
+            className="group flex items-center gap-4 rounded-[26px] bg-card p-4 shadow-soft ring-1 ring-border/70 transition-shadow hover:shadow-lift sm:flex-col sm:items-start sm:p-5"
           >
-            <span className="flex size-12 items-center justify-center rounded-[14px] bg-primary-soft text-primary-ink">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-[14px] bg-primary-soft text-primary-ink">
               <Icon className="size-6" strokeWidth={2} aria-hidden />
             </span>
-            <span className="mt-4 text-lg font-bold">{title}</span>
-            <span className="mt-1 flex-1 text-sm text-muted-foreground">{text}</span>
-            <span className="mt-4 flex items-center gap-1 text-sm font-semibold text-primary-ink">
+            <span className="min-w-0 flex-1">
+              <span className="block text-lg font-bold">{title}</span>
+              <span className="mt-1 block text-sm text-muted-foreground">{text}</span>
+            </span>
+            <span className="hidden items-center gap-1 text-sm font-semibold text-primary-ink sm:flex">
               Entrer <ArrowRight className="size-4 transition group-hover:translate-x-1" aria-hidden />
             </span>
+            <ChevronRight className="size-5 shrink-0 text-muted-foreground sm:hidden" aria-hidden />
           </motion.a>
         ))}
       </section>
 
       <section className="py-16">
-        <h2 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Comment ça marche</h2>
+        <h2 className="font-heading text-[26px] leading-tight font-extrabold text-balance sm:text-[32px]">Comment ça marche</h2>
         <ol className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-3">
           {STEPS.map(({ icon: Icon, title, text }, i) => (
             <li key={title}>

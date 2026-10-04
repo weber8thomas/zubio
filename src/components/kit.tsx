@@ -1,7 +1,8 @@
 import { motion } from "motion/react";
 import type { LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { CATEGORIES, classById } from "@/data/classes";
+import { COACHES } from "@/data/coaches";
 import type { ApplicationStatus, ClassId, SlotStatus } from "@/data/types";
 import { cn } from "@/lib/utils";
 
@@ -37,24 +38,28 @@ export function ClassChip({ id }: { id: ClassId }) {
   );
 }
 
-/** Portrait du coach (photos de démo randomuser.me). */
+/** Portrait du coach (photos de démo randomuser.me), initiales si l'image manque. */
 export function Avatar({ id, size = "md", className }: { id: string; size?: "xs" | "sm" | "md" | "lg" | "xl"; className?: string }) {
-  return (
-    <img
-      src={`${import.meta.env.BASE_URL}avatars/${id}.jpg`}
-      alt=""
-      loading="lazy"
-      className={cn(
-        "shrink-0 rounded-full bg-muted object-cover ring-2 ring-card",
-        size === "xs" && "size-6",
-        size === "sm" && "size-8",
-        size === "md" && "size-11",
-        size === "lg" && "size-16",
-        size === "xl" && "size-24",
-        className,
-      )}
-    />
+  const [broken, setBroken] = useState<string | null>(null);
+  const cls = cn(
+    "shrink-0 rounded-full bg-muted ring-2 ring-card",
+    size === "xs" && "size-6 text-[9px]",
+    size === "sm" && "size-8 text-xs",
+    size === "md" && "size-11 text-sm",
+    size === "lg" && "size-16 text-lg",
+    size === "xl" && "size-24 text-2xl",
+    className,
   );
+  if (broken === id) {
+    const name = COACHES.find((c) => c.id === id)?.name ?? id;
+    const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+    return (
+      <span aria-hidden className={cn("inline-flex items-center justify-center font-heading font-semibold text-ink-soft", cls)}>
+        {initials}
+      </span>
+    );
+  }
+  return <img src={`${import.meta.env.BASE_URL}avatars/${id}.jpg`} alt="" loading="lazy" onError={() => setBroken(id)} className={cn("object-cover", cls)} />;
 }
 
 export function AvatarStack({ ids, max = 4 }: { ids: string[]; max?: number }) {
@@ -112,14 +117,16 @@ export function Status({ status, label }: { status: AnyStatus; label?: string })
 export function Stat({ label, value, icon: Icon, href }: { label: string; value: ReactNode; icon: LucideIcon; href?: string }) {
   const body = (
     <>
-      <span className="flex size-9 items-center justify-center rounded-xl bg-muted text-ink-soft">
-        <Icon className="size-[18px]" strokeWidth={2} aria-hidden />
+      <span className="hidden size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-ink-soft sm:flex">
+        <Icon className="size-5" strokeWidth={2} aria-hidden />
       </span>
-      <p className="mt-auto pt-4 font-heading text-[26px] leading-none font-extrabold tabular-nums">{value}</p>
-      <p className="mt-1.5 truncate text-sm text-muted-foreground">{label}</p>
+      <span className="min-w-0">
+        <span className="block font-heading text-[26px] leading-none font-extrabold tabular-nums">{value}</span>
+        <span className="mt-1 block text-sm leading-tight text-muted-foreground">{label}</span>
+      </span>
     </>
   );
-  const cls = "flex flex-col rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/70";
+  const cls = "flex flex-col gap-3 rounded-3xl bg-card p-4 ring-1 ring-border/70 sm:flex-row sm:items-center";
   return href ? (
     <Tap href={href} className={cls}>
       {body}
@@ -133,7 +140,7 @@ export function Section({ title, action, children, className }: { title: string;
   return (
     <section className={cn("mt-8", className)}>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="font-heading text-[17px] font-semibold">{title}</h2>
+        <h2 className="font-heading text-[17px] font-semibold text-balance">{title}</h2>
         {action}
       </div>
       {children}
@@ -160,6 +167,44 @@ export function Tap({ href, className, children }: { href: string; className?: s
   );
 }
 
+/**
+ * Carte créneau commune (tableau de bord salle, Explorer coach).
+ * Avec `times`, la date passe en surtitre et une frise début ○──● fin remplace la pastille du cours.
+ */
+export function SlotCard({ href, classId, title, when, sub, price, footer, times }: { href: string; classId: ClassId; title: ReactNode; when: ReactNode; sub?: ReactNode; price: number; footer: ReactNode; times?: [string, string] }) {
+  return (
+    <Tap href={href} className="flex h-full flex-col rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/70">
+      {times && <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{when}</p>}
+      <div className="flex flex-1 gap-3">
+        {times ? (
+          <>
+            <div className="flex w-12 shrink-0 flex-col items-end justify-between py-0.5 text-sm font-bold tabular-nums">
+              <span>{times[0]}</span>
+              <span className="text-muted-foreground">{times[1]}</span>
+            </div>
+            <div className="flex flex-col items-center py-1.5" aria-hidden>
+              <span className="size-3 rounded-full border-[3px] border-primary bg-card" />
+              <span className="w-[3px] flex-1 rounded-full bg-primary/30" />
+              <span className="size-3 rounded-full bg-primary" />
+            </div>
+          </>
+        ) : (
+          <ClassTile id={classId} />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-[17px] leading-snug font-bold">{title}</p>
+          {!times && <p className="text-sm text-muted-foreground">{when}</p>}
+          {sub && <div className="text-sm text-muted-foreground">{sub}</div>}
+        </div>
+        <p className="shrink-0 font-heading text-lg font-extrabold whitespace-nowrap tabular-nums">{price} €</p>
+      </div>
+      <div className="mt-3 border-t border-border/70 pt-3">
+        <div className="flex min-h-8 items-center justify-between gap-2">{footer}</div>
+      </div>
+    </Tap>
+  );
+}
+
 /** Liste dont les éléments apparaissent en cascade. */
 export const stagger = (i: number) => ({
   initial: { opacity: 0, y: 8 },
@@ -180,7 +225,7 @@ export function BackLink({ href, children }: { href: string; children: ReactNode
 
 export const PageTitle = ({ children, sub }: { children: ReactNode; sub?: ReactNode }) => (
   <header className="mb-6">
-    <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">{children}</h1>
+    <h1 className="font-heading text-[26px] leading-tight font-extrabold text-balance sm:text-[32px]">{children}</h1>
     {sub && <p className="mt-1 text-muted-foreground">{sub}</p>}
   </header>
 );

@@ -11,11 +11,22 @@ import { type CertOverrides, certStatus } from "@/lib/matching";
 import { venueById } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
-/** Cours qu'un coach peut donner, d'après ses certifications vérifiées. */
+// Diplômes généralistes : ils ouvrent beaucoup de cours sans dire la spécialité du coach.
+const GENERIC = ["bpjeps-af", "cqp-als", "staps"];
+
+/**
+ * Cours qu'un coach peut donner, d'après ses certifications vérifiées.
+ * Spécialités d'abord (licence dédiée), puis leur famille, puis le reste.
+ */
 export const teachable = (coachId: string, overrides: CertOverrides) => {
   const coach = coachById(coachId);
-  return CLASSES.filter((c) => c.requires.some((r) => certStatus(coach, r, overrides) === "verified")).map((c) => c.id);
+  const list = CLASSES.map((c) => ({ c, via: c.requires.filter((r) => certStatus(coach, r, overrides) === "verified") })).filter((x) => x.via.length);
+  const special = list.filter((x) => x.via.some((r) => !GENERIC.includes(r)));
+  const rank = (x: (typeof list)[number]) => (special.includes(x) ? 0 : special.some((y) => y.c.category === x.c.category) ? 1 : 2);
+  return list.sort((a, b) => rank(a) - rank(b)).map((x) => x.c.id);
 };
+
+const hour = (t: string) => t.replace(/^0/, "").replace(":00", "h").replace(":", "h");
 
 const WEEK = ["L", "M", "M", "J", "V", "S", "D"];
 
@@ -45,55 +56,64 @@ export function CoachProfile({ coachId, from, overrides, actions }: { coachId: s
           </p>
         </div>
       </div>
-      {actions && <div className="mt-5">{actions}</div>}
+      <div className={cn("flex flex-col", actions && "lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8")}>
+        {actions && <aside className="order-first mt-5 lg:sticky lg:top-36 lg:order-none lg:col-start-2 lg:row-start-1 lg:mt-6 lg:self-start">{actions}</aside>}
+        <div className="min-w-0">
+          <p className="mt-6 max-w-prose text-[17px] leading-relaxed text-ink-soft">{c.bio}</p>
 
-      <p className="mt-6 text-[17px] leading-relaxed text-ink-soft">{c.bio}</p>
+          <Section title="Cours qu'elle ou il peut donner">
+            <div className="flex flex-wrap gap-1.5">
+              {classes.length ? classes.map((id) => <ClassChip key={id} id={id} />) : <p className="text-muted-foreground">Aucun pour l'instant : certifications en attente.</p>}
+            </div>
+          </Section>
 
-      <Section title="Cours qu'elle ou il peut donner">
-        <div className="flex flex-wrap gap-1.5">
-          {classes.length ? classes.map((id) => <ClassChip key={id} id={id} />) : <p className="text-muted-foreground">Aucun pour l'instant : certifications en attente.</p>}
+          <Section title="Certifications">
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {c.certs.map((cert) => {
+                const status = certStatus(c, cert.id, overrides);
+                return (
+                  <li key={cert.id} className="flex items-center gap-3 rounded-2xl bg-card p-3 ring-1 ring-border/70">
+                    <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-[11px]", status === "verified" ? "bg-success-soft text-success-ink" : status === "rejected" ? "bg-primary-soft text-primary-ink" : "bg-warning-soft text-warning-ink")}>
+                      {status === "verified" ? <BadgeCheck className="size-[18px]" /> : status === "rejected" ? <X className="size-[18px]" /> : <Clock className="size-[18px]" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{certLabel(cert.id)}</span>
+                      <span className="text-xs text-muted-foreground">{status === "verified" ? "Vérifiée" : status === "rejected" ? "Refusée" : "En cours de vérification"}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+
+          <Section title="Disponibilités habituelles">
+            <div className="grid grid-cols-7 gap-1.5 sm:max-w-md">
+              {WEEK.map((d, i) => {
+                const plage = c.availability.filter((a) => a.days.includes(i + 1)).sort((a, b) => a.from.localeCompare(b.from));
+                return (
+                  <div key={i} className={cn("rounded-2xl px-1 py-2 text-center", plage.length ? "bg-primary-soft text-primary-ink" : "bg-muted text-muted-foreground")}>
+                    <p className="font-heading text-sm font-extrabold">{d}</p>
+                    <p className="mt-0.5 leading-tight font-medium tabular-nums">
+                      {(plage.length ? plage.map((a) => hour(a.from)) : ["—"]).map((t) => (
+                        <span key={t} className="block text-[11px] sm:text-xs">
+                          {t}
+                        </span>
+                      ))}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <Languages className="size-4" aria-hidden /> {c.languages.join(", ")}
+              </span>
+              <span>Jusqu'à {c.radiusKm} km</span>
+              <span>Dès {c.minHourly} €/h</span>
+            </p>
+          </Section>
         </div>
-      </Section>
-
-      <Section title="Certifications">
-        <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {c.certs.map((cert) => {
-            const status = certStatus(c, cert.id, overrides);
-            return (
-              <li key={cert.id} className="flex items-center gap-3 rounded-2xl bg-card p-3 ring-1 ring-border/70">
-                <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-[11px]", status === "verified" ? "bg-success-soft text-success-ink" : status === "rejected" ? "bg-primary-soft text-primary-ink" : "bg-warning-soft text-warning-ink")}>
-                  {status === "verified" ? <BadgeCheck className="size-[18px]" /> : status === "rejected" ? <X className="size-[18px]" /> : <Clock className="size-[18px]" />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{certLabel(cert.id)}</span>
-                  <span className="text-xs text-muted-foreground">{status === "verified" ? "Vérifiée" : status === "rejected" ? "Refusée" : "En cours de vérification"}</span>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      </Section>
-
-      <Section title="Disponibilités habituelles">
-        <div className="grid grid-cols-7 gap-1.5">
-          {WEEK.map((d, i) => {
-            const plage = c.availability.filter((a) => a.days.includes(i + 1));
-            return (
-              <div key={i} className={cn("rounded-2xl p-2 text-center", plage.length ? "bg-primary-soft text-primary-ink" : "bg-muted text-muted-foreground")}>
-                <p className="font-heading text-sm font-extrabold">{d}</p>
-                <p className="mt-0.5 text-[10px] leading-tight font-medium tabular-nums">{plage.length ? plage.map((a) => a.from.replace(":00", "h")).join(" ") : "—"}</p>
-              </div>
-            );
-          })}
-        </div>
-        <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <Languages className="size-4" aria-hidden /> {c.languages.join(", ")}
-          </span>
-          <span>Jusqu'à {c.radiusKm} km</span>
-          <span>Dès {c.minHourly} €/h</span>
-        </p>
-      </Section>
+      </div>
     </>
   );
 }
@@ -106,7 +126,10 @@ export function SlotHeader({ slot, status }: { slot: Slot; status?: ReactNode })
     <div className="flex items-start gap-4">
       <ClassTile id={slot.classId} size="lg" />
       <div className="min-w-0 flex-1">
-        <h1 className="font-heading text-[22px] leading-tight font-extrabold sm:text-[28px]">{c.label}</h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-heading text-[22px] leading-tight font-extrabold sm:text-[28px]">{c.label}</h1>
+          <p className="shrink-0 font-heading text-2xl font-extrabold whitespace-nowrap tabular-nums">{slot.price} €</p>
+        </div>
         <p className="mt-0.5 font-medium">
           {dayLabel(slot.date, "long")} · {slot.start}–{endOf(slot.start, slot.duration)}
         </p>
@@ -115,7 +138,6 @@ export function SlotHeader({ slot, status }: { slot: Slot; status?: ReactNode })
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {status}
-          <span className="font-heading font-extrabold tabular-nums">{slot.price} €</span>
           {slot.urgent && (
             <span className="inline-flex h-7 items-center gap-1 rounded-full bg-warning-soft px-2.5 text-[13px] font-semibold text-warning-ink">
               <Zap className="size-3.5" aria-hidden /> Urgent
@@ -131,7 +153,7 @@ export function SlotHeader({ slot, status }: { slot: Slot; status?: ReactNode })
 export function SlotFacts({ slot }: { slot: Slot }) {
   const facts: [typeof Users, string, string][] = [
     [Clock, "Durée", duration(slot.duration)],
-    [Users, "Participants", `${slot.capacity} attendus`],
+    [Users, "Public", `${slot.capacity} ${slot.audience.toLowerCase()}`],
     [Gauge, "Niveau", LEVELS[slot.level]],
     [Languages, "Langue", slot.language],
     [Repeat, "Type", slot.weeks > 1 ? `${KINDS[slot.kind]} · ${slot.weeks} semaines` : KINDS[slot.kind]],
@@ -151,7 +173,6 @@ export function SlotFacts({ slot }: { slot: Slot }) {
         ))}
       </dl>
       {slot.notes && <p className="mt-3 rounded-2xl bg-muted/70 p-3 text-sm text-ink-soft">« {slot.notes} »</p>}
-      <p className="mt-2 text-xs text-muted-foreground">Public : {slot.audience}</p>
     </div>
   );
 }
