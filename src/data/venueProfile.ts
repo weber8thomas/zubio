@@ -65,3 +65,15 @@ export function venueProfile(v: Venue) {
     reviews,
   };
 }
+
+const TIMES = ["07:00", "09:15", "10:30", "12:15", "12:30", "17:45", "18:30", "19:15", "19:30", "20:15"];
+
+/** Semaine type de cours collectifs (démo), du lundi (1) au dimanche (7). */
+export function weekPlan(v: Venue) {
+  const rnd = seeded(hash(v.id) + 11);
+  return [1, 2, 3, 4, 5, 6, 7].map((day) => {
+    const n = day === 7 ? 1 + Math.floor(rnd() * 2) : day === 6 ? 2 + Math.floor(rnd() * 2) : 3 + Math.floor(rnd() * 3);
+    const times = [...TIMES].sort(() => rnd() - 0.5).slice(0, n).sort();
+    return { day, classes: times.map((start, i) => ({ start, classId: v.classes[Math.floor(rnd() * v.classes.length + i) % v.classes.length] })) };
+  });
+}

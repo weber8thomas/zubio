@@ -114,7 +114,7 @@ export function DurationField({ value, onChange, start }: { value: number; onCha
 }
 
 /** Nombre ajustable : boutons −/+ (appui long qui accélère) et saisie directe. */
-export function Stepper({ value, onChange, min, max, suffix, label }: { value: number; onChange: (n: number) => void; min: number; max: number; suffix?: string; label: string }) {
+export function Stepper({ value, onChange, min, max, suffix, label, big }: { value: number; onChange: (n: number) => void; min: number; max: number; suffix?: string; label: string; big?: boolean }) {
   const timer = useRef<number>(0);
   const clamp = (n: number) => Math.max(min, Math.min(max, n));
   const hold = (delta: number) => {
@@ -136,15 +136,15 @@ export function Stepper({ value, onChange, min, max, suffix, label }: { value: n
       onPointerUp={stop}
       onPointerLeave={stop}
       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onChange(clamp(value + delta))}
-      className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-foreground hover:bg-border"
+      className={cn("flex shrink-0 items-center justify-center rounded-full text-foreground", big ? "size-16 bg-card ring-1 ring-border-strong hover:bg-muted" : "size-11 bg-muted hover:bg-border")}
     >
-      <Icon className="size-5" aria-hidden />
+      <Icon className={big ? "size-7" : "size-5"} aria-hidden />
     </motion.button>
   );
   return (
-    <div className="flex items-center gap-2 rounded-2xl bg-card p-1.5 ring-1 ring-border/70">
+    <div className={cn("flex items-center", big ? "justify-center gap-4 sm:gap-8" : "gap-2 rounded-2xl bg-card p-1.5 ring-1 ring-border/70")}>
       {btn(-1, Minus, `Diminuer ${label}`)}
-      <label className="flex flex-1 items-baseline justify-center gap-1">
+      <label className={cn("flex items-baseline justify-center gap-1", !big && "flex-1")}>
         <span className="sr-only">{label}</span>
         <input
           inputMode="numeric"
@@ -153,9 +153,10 @@ export function Stepper({ value, onChange, min, max, suffix, label }: { value: n
             const n = parseInt(e.target.value.replace(/\D/g, "") || "0", 10);
             onChange(clamp(n));
           }}
-          className="w-16 bg-transparent text-right font-heading text-2xl font-extrabold tabular-nums outline-none"
+          size={Math.max(2, String(value).length)}
+          className={cn("bg-transparent text-center font-heading font-extrabold tabular-nums outline-none", big ? "min-w-0 text-[64px] leading-none sm:text-[80px]" : "w-16 text-right text-2xl")}
         />
-        {suffix && <span className="font-heading text-lg font-extrabold">{suffix}</span>}
+        {suffix && <span className={cn("font-heading font-extrabold", big ? "text-[40px] sm:text-[48px]" : "text-lg")}>{suffix}</span>}
       </label>
       {btn(1, Plus, `Augmenter ${label}`)}
     </div>

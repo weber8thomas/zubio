@@ -7,10 +7,11 @@ import { MapView } from "@/components/map";
 import { Chip } from "@/components/pickers";
 import { CoachProfile, Confirmed, SlotFacts, SlotHeader, teachable } from "@/components/profiles";
 import { Shell } from "@/components/shell";
-import { VenueProfile } from "@/components/venue";
+import { VenueLogo, VenueProfile } from "@/components/venue";
 import { SalleInvoices, InvoicePage } from "./billing";
 import { PublishWizard } from "./publish";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { CATEGORIES, classById } from "@/data/classes";
 import { COACHES, coachById } from "@/data/coaches";
@@ -80,15 +81,18 @@ function Home() {
 
   return (
     <>
-      <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-        <MapPin className="size-4" aria-hidden /> {venue.address}
-      </p>
-      <h1 className="mt-1 font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">
-        <a href="#/salle/profil" className="group inline-flex items-center gap-2 hover:underline hover:decoration-border-strong hover:underline-offset-4">
-          {venue.name}
-          <ChevronRight className="size-6 text-muted-foreground transition group-hover:translate-x-0.5" aria-hidden />
-        </a>
-      </h1>
+      <a href="#/salle/profil" className="group flex items-center gap-4">
+        <VenueLogo venueId={venue.id} size="md" className="transition group-hover:scale-105 sm:size-14" />
+        <span className="min-w-0">
+          <span className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+            <MapPin className="size-4 shrink-0" aria-hidden /> <span className="truncate">{venue.address}</span>
+          </span>
+          <span className="flex items-center gap-1 font-heading text-[26px] leading-tight font-extrabold group-hover:underline group-hover:decoration-border-strong group-hover:underline-offset-4 sm:text-[32px]">
+            <h1>{venue.name}</h1>
+            <ChevronRight className="size-6 text-muted-foreground transition group-hover:translate-x-0.5" aria-hidden />
+          </span>
+        </span>
+      </a>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -144,7 +148,6 @@ function SlotPage({ id }: { id: string }) {
   if (!slot) return <Empty>Créneau introuvable.</Empty>;
   const apps = state.applications.filter((a) => a.slotId === id && a.status !== "withdrawn");
   const pending = apps.filter((a) => a.status === "pending").length;
-  const offered = apps.find((a) => a.status === "offered");
   const matches = matchesFor(state, slot);
   const open = slot.status === "open";
 
@@ -157,11 +160,11 @@ function SlotPage({ id }: { id: string }) {
     <>
       <BackLink href="#/salle">Tableau de bord</BackLink>
       <div className="mt-2">
-        <SlotHeader slot={slot} status={open && offered ? <Status status="offered" /> : open && pending ? <Status status="candidates" label={candidatures(pending)} /> : <Status status={slot.status} />} />
+        <SlotHeader slot={slot} status={open && pending ? <Status status="candidates" label={candidatures(pending)} /> : <Status status={slot.status} />} />
       </div>
 
       <div className="mt-6 rounded-3xl bg-card px-3 py-4 ring-1 ring-border/70">
-        <Steps steps={SLOT_STEPS} current={slotStep(state, slot)} />
+        <Steps steps={SLOT_STEPS} current={slotStep(slot)} />
       </div>
 
       {slot.coachId && (
@@ -257,15 +260,6 @@ function SlotPage({ id }: { id: string }) {
               Réservation instantanée : le premier coach compatible qui réserve est confirmé automatiquement.
             </p>
           )}
-          {offered && open && (
-            <div className="mb-3 rounded-3xl bg-warning-soft p-4 text-sm">
-              <p className="font-semibold text-warning-ink">En attente de la confirmation de {coachById(offered.coachId).name}</p>
-              <p className="mt-1 text-ink-soft">Le coach a 12 h pour confirmer sa venue. Sans réponse, vous pourrez retenir un autre candidat.</p>
-              <Button size="sm" variant="outline" className="mt-3" onClick={() => (actions.confirm(offered.id), toast.success(`${coachById(offered.coachId).name} a confirmé`))}>
-                Démo : simuler sa confirmation
-              </Button>
-            </div>
-          )}
           <ul className="flex flex-col gap-2">
             <AnimatePresence initial={false}>
               {apps.map((a, i) => {
@@ -289,8 +283,8 @@ function SlotPage({ id }: { id: string }) {
                           {km(f.km)} · {c.missions} missions
                         </p>
                       </div>
-                      {a.status === "pending" && open && !offered ? (
-                        <Button onClick={() => (actions.offer(a.id), toast(`${c.name} est retenu·e`, { description: "Le coach doit confirmer sa venue." }))}>Retenir</Button>
+                      {a.status === "pending" && open ? (
+                        <ConfirmCoach appId={a.id} />
                       ) : (
                         <Status status={a.status} />
                       )}
@@ -302,7 +296,7 @@ function SlotPage({ id }: { id: string }) {
             </AnimatePresence>
           </ul>
           {!apps.length && <Empty>Pas encore de candidature. {matches.length} coach{matches.length > 1 ? "s" : ""} compatible{matches.length > 1 ? "s ont" : " a"} été prévenu{matches.length > 1 ? "s" : ""}.</Empty>}
-          {open && !offered && (
+          {open && (
             <div className="mt-3 flex items-center gap-3 rounded-3xl bg-muted/60 p-3 pl-4">
               <p className="flex-1 text-sm text-muted-foreground">Démo : faire postuler des coachs compatibles.</p>
               <Button size="sm" variant="outline" onClick={simulate}>
@@ -397,6 +391,74 @@ function CatChip({ active, onClick, children }: { active: boolean; onClick: () =
   );
 }
 
+/** Confirmation d'un candidat : récapitulatif, puis engagement des deux côtés. */
+function ConfirmCoach({ appId }: { appId: string }) {
+  const state = useStore();
+  const [open, setOpen] = useState(false);
+  const app = state.applications.find((a) => a.id === appId)!;
+  const slot = slotById(state, app.slotId)!;
+  const venue = myVenue();
+  const c = coachById(app.coachId);
+  const f = fit(live(state, c), slot, venue, state.certs);
+  const others = state.applications.filter((a) => a.slotId === slot.id && a.status === "pending" && a.id !== appId).length;
+  const checks = [
+    [`Certification ${classById(slot.classId).label} vérifiée par Zubio`, !f.issues.includes("Certification")],
+    [`Disponible ${dayLabel(slot.date).toLowerCase()} de ${slot.start} à ${endOf(slot.start, slot.duration)}`, !f.issues.includes("Disponibilité")],
+    [`À ${km(f.km)} de la salle, dans sa zone`, !f.issues.includes("Distance")],
+  ] as const;
+
+  function confirm() {
+    actions.confirm(appId);
+    setOpen(false);
+    toast.success(`${c.name} est confirmé·e`, { description: `Le coach est prévenu${others ? `, ${others} autre${others > 1 ? "s" : ""} candidat${others > 1 ? "s" : ""} aussi` : ""}.` });
+  }
+
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>Confirmer</Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md gap-0 p-0 sm:max-w-md">
+          <div className="flex items-center gap-4 p-5 pr-12 pb-4">
+            <Avatar id={c.id} size="lg" />
+            <div className="min-w-0">
+              <DialogTitle className="font-heading text-xl leading-tight font-extrabold">Confirmer {c.name.split(" ")[0]} ?</DialogTitle>
+              <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                <Star className="size-3.5 fill-warning text-warning" aria-hidden /> {c.rating.toFixed(1)} · {c.missions} missions
+              </p>
+            </div>
+          </div>
+          <div className="mx-5 flex items-center gap-3 rounded-2xl bg-muted/70 p-3">
+            <ClassTile id={slot.classId} size="sm" />
+            <p className="min-w-0 flex-1 text-sm">
+              <b>{classById(slot.classId).label}</b> · {dayLabel(slot.date)} {slot.start}
+            </p>
+            <p className="font-heading text-lg font-extrabold tabular-nums">{slot.price} €</p>
+          </div>
+          <ul className="space-y-2 px-5 pt-4 text-sm">
+            {checks.map(([label, ok]) => (
+              <li key={label} className="flex items-start gap-2">
+                {ok ? <CheckCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden /> : <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warning-ink" aria-hidden />}
+                {label}
+              </li>
+            ))}
+          </ul>
+          <p className="px-5 pt-4 text-[13px] text-muted-foreground">
+            En confirmant, vous vous engagez à accueillir le coach au tarif indiqué. Sa candidature valait engagement : la mission est confirmée des deux côtés{others === 1 ? " et l'autre candidat est prévenu" : others ? ` et les ${others} autres candidats sont prévenus` : ""}.
+          </p>
+          <div className="flex gap-2 p-5">
+            <Button variant="outline" className="flex-1" onClick={() => setOpen(false)}>
+              Annuler
+            </Button>
+            <Button className="flex-1" onClick={confirm}>
+              <CheckCheck /> Confirmer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 /** Rappel du créneau en cours, pendant que la salle parcourt les profils. */
 function Pourvoir({ coachId }: { coachId?: string }) {
   const state = useStore();
@@ -407,12 +469,10 @@ function Pourvoir({ coachId }: { coachId?: string }) {
   const coach = coachId ? COACHES.find((c) => c.id === coachId) : undefined;
   const f = coach && fit(live(state, coach), slot, venue, state.certs);
   const invited = coachId && state.invites.some((i) => i.slotId === slot.id && i.coachId === coachId);
-  const offered = state.applications.some((a) => a.slotId === slot.id && a.status === "offered");
   const href = `#/salle/creneau/${slot.id}`;
 
   let action: ReactNode = null;
-  if (coach && app && app.status === "pending" && !offered)
-    action = <Button onClick={() => (actions.offer(app.id), toast(`${coach.name} est retenu·e`, { description: "Le coach doit confirmer sa venue." }))}>Retenir</Button>;
+  if (coach && app && app.status === "pending") action = <ConfirmCoach appId={app.id} />;
   else if (coach && app) action = <Status status={app.status} />;
   else if (coach && f?.ok)
     action = (

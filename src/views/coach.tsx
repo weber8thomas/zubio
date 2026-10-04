@@ -7,7 +7,7 @@ import { MapView } from "@/components/map";
 import { Chip } from "@/components/pickers";
 import { CoachProfile, Confirmed, SlotFacts, SlotHeader } from "@/components/profiles";
 import { Shell } from "@/components/shell";
-import { VenueProfile } from "@/components/venue";
+import { VenueLogo, VenueProfile } from "@/components/venue";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
@@ -234,7 +234,10 @@ function SlotTile({ slot, venueName, where, fitOk, reason, applied, invited, sho
       price={slot.price}
       sub={
         <>
-          <p className="truncate font-medium text-foreground">{venueName}</p>
+          <p className="flex items-center gap-1.5 truncate font-medium text-foreground">
+            <VenueLogo venueId={slot.venueId} size="xs" />
+            <span className="truncate">{venueName}</span>
+          </p>
           <p className="truncate">{where}</p>
         </>
       }
@@ -282,13 +285,13 @@ function SlotPage({ id }: { id: string }) {
       </div>
       {app && (
         <div className="mt-6 rounded-3xl bg-card px-3 py-4 ring-1 ring-border/70">
-          <Steps steps={["Candidature", "Retenu·e", "Confirmé", "Réalisé", "Payé"]} current={slot.status === "done" ? 4 : mine ? 3 : app.status === "offered" ? 1 : 0} />
+          <Steps steps={["Candidature", "Confirmé", "Réalisé", "Payé"]} current={slot.status === "done" ? 4 : mine ? 2 : 1} />
         </div>
       )}
 
       {mine && (
         <div className="mt-6">
-          <Confirmed coachId={ME.id} title="Vous êtes retenu·e" subtitle={`${venue.name} vous attend.`} />
+          <Confirmed coachId={ME.id} title="Mission confirmée par la salle" subtitle={`${venue.name} vous attend.`} />
         </div>
       )}
 
@@ -316,27 +319,10 @@ function SlotPage({ id }: { id: string }) {
         {slot.status === "open" && (
           <div className="order-first lg:sticky lg:top-36 lg:order-none lg:self-start">
             <AnimatePresence mode="wait" initial={false}>
-              {app?.status === "offered" ? (
-                <motion.div key="offered" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="rounded-3xl bg-card p-5 shadow-lift ring-2 ring-primary">
-                  <p className="font-heading text-lg font-semibold">{venue.name} vous a retenu·e</p>
-                  <p className="mt-1 text-sm text-ink-soft">Confirmez votre venue sous 12 h. Une fois confirmé, c'est un engagement : en cas d'imprévu, prévenez la salle au plus vite.</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button size="lg" className="flex-1" onClick={() => (actions.confirm(app.id), toast.success("C'est confirmé, des deux côtés", { description: `${venue.name} est prévenu·e.` }), go(`/coach/mission/${slot.id}`))}>
-                      <Check /> Je confirme
-                    </Button>
-                    <Button size="lg" variant="outline" onClick={() => (actions.decline(app.id), toast("Mission déclinée", { description: "La salle peut retenir un autre coach." }))}>
-                      Décliner
-                    </Button>
-                  </div>
-                </motion.div>
-              ) : app?.status === "declined" ? (
-                <motion.div key="declined" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-3xl bg-muted p-5 text-sm text-muted-foreground">
-                  Vous avez décliné cette mission.
-                </motion.div>
-              ) : app ? (
+              {app ? (
                 <motion.div key="applied" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="rounded-3xl bg-warning-soft p-5">
                   <p className="font-heading text-lg font-semibold">En attente de la salle</p>
-                  <p className="mt-1 text-sm text-ink-soft">La salle compare les profils et vous répond vite. Vous êtes prévenu·e dès qu'elle choisit.</p>
+                  <p className="mt-1 text-sm text-ink-soft">Votre candidature vous engage : si la salle la confirme, la mission est à vous. Vous pouvez la retirer tant qu'elle n'a pas choisi.</p>
                   <Button variant="outline" className="mt-4" onClick={() => (actions.withdraw(app.id), toast("Candidature retirée"))}>
                     <X /> Retirer ma candidature
                   </Button>
@@ -389,38 +375,12 @@ function SlotPage({ id }: { id: string }) {
 function Planning() {
   const state = useStore();
   const missions = state.slots.filter((s) => s.coachId === ME.id && s.status === "filled" && s.date >= today()).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
-  const apps = state.applications.filter((a) => a.coachId === ME.id && a.status !== "selected" && a.status !== "offered").reverse();
-  const offers = state.applications.filter((a) => a.coachId === ME.id && a.status === "offered");
+  const apps = state.applications.filter((a) => a.coachId === ME.id && a.status !== "selected").reverse();
 
   return (
     <>
       <PageTitle>Planning</PageTitle>
-      {offers.length > 0 && (
-        <Section title="À confirmer" className="mt-0">
-          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {offers.map((a, i) => {
-              const s = slotById(state, a.slotId)!;
-              return (
-                <motion.li key={a.id} {...stagger(i)}>
-                  <Tap href={`#/coach/creneau/${s.id}`} className="flex h-full items-center gap-3 rounded-3xl bg-card p-3 shadow-lift ring-2 ring-primary">
-                    <ClassTile id={s.classId} />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold">
-                        {dayLabel(s.date)} · {s.start}
-                      </p>
-                      <p className="truncate text-sm text-muted-foreground">
-                        {venueById(s.venueId).name} vous a retenu·e
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-primary px-3 py-1.5 text-[13px] font-semibold text-primary-foreground">Confirmer</span>
-                  </Tap>
-                </motion.li>
-              );
-            })}
-          </ul>
-        </Section>
-      )}
-      <Section title="Missions à venir" className={offers.length ? undefined : "mt-0"}>
+      <Section title="Missions à venir" className="mt-0">
         {missions.length ? (
           <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {missions.map((s, i) => {
@@ -506,7 +466,7 @@ function Mission({ id }: { id: string }) {
       </div>
 
       <div className="mt-6 rounded-3xl bg-card px-3 py-4 ring-1 ring-border/70">
-        <Steps steps={SLOT_STEPS.slice(1)} current={slotStep(state, slot) - 1} />
+        <Steps steps={SLOT_STEPS.slice(1)} current={slotStep(slot) - 1} />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">

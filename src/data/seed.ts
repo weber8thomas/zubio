@@ -54,7 +54,7 @@ export function initialSlots(): Slot[] {
 export const INITIAL_APPLICATIONS: Application[] = [
   { id: "a1", slotId: "s1", coachId: "antton", message: "Je connais bien votre studio vélo, je peux venir 15 min avant pour régler les machines.", status: "pending", at: Date.now() - 50 * 60_000 },
   { id: "a2", slotId: "s1", coachId: "hugo", message: "Disponible, la nouvelle chorégraphie RPM est prête.", status: "pending", at: Date.now() - 35 * 60_000 },
-  { id: "a3", slotId: "s6", coachId: "maialen", message: "", status: "offered", at: Date.now() - 20 * 60_000 },
+  { id: "a3", slotId: "s6", coachId: "maialen", message: "", status: "pending", at: Date.now() - 20 * 60_000 },
 ];
 
 /** Invitations envoyées par des salles à des coachs. */

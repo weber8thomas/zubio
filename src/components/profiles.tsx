@@ -13,6 +13,7 @@ import { distanceKm, km } from "@/lib/geo";
 import { type CertOverrides, certStatus } from "@/lib/matching";
 import { venueById } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { VenueLogo } from "@/components/venue";
 
 // Diplômes généralistes : ils ouvrent beaucoup de cours sans dire la spécialité du coach.
 const GENERIC = ["bpjeps-af", "cqp-als", "staps"];
@@ -234,7 +235,8 @@ export function SlotHeader({ slot, status, venueHref }: { slot: Slot; status?: R
         <p className="mt-0.5 font-medium">
           {dayLabel(slot.date, "long")} · {slot.start}–{endOf(slot.start, slot.duration)}
         </p>
-        <p className="text-sm text-muted-foreground">
+        <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+          <VenueLogo venueId={v.id} size="xs" />
           {venueHref ? (
             <a href={venueHref} className="font-semibold text-foreground underline decoration-border-strong underline-offset-4 hover:decoration-foreground">
               {v.name}

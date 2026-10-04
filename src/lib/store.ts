@@ -25,7 +25,7 @@ export type CertReview = { checks: string[]; log: { at: number; text: string }[]
 const noReview: CertReview = { checks: [], log: [] };
 export const reviewOf = (s: State, key: string) => s.review?.[key] ?? noReview;
 
-const KEY = "zubio-demo-v5";
+const KEY = "zubio-demo-v6";
 const initial = (): State => ({ slots: initialSlots(), applications: INITIAL_APPLICATIONS, invites: INITIAL_INVITES, certs: {} });
 
 let state: State = (() => {
@@ -102,12 +102,7 @@ export const actions = {
     set({ applications: state.applications.map((a) => (a.id === applicationId ? { ...a, status: "withdrawn" } : a)) });
   },
 
-  /** La salle retient un candidat : il doit confirmer sa venue. */
-  offer(applicationId: string) {
-    set({ applications: state.applications.map((a) => (a.id === applicationId ? { ...a, status: "offered" } : a)) });
-  },
-
-  /** Le coach confirme : créneau confirmé des deux côtés, les autres candidatures sont closes. */
+  /** La salle confirme un candidat : le créneau est pourvu, les autres candidatures sont closes. */
   confirm(applicationId: string) {
     const app = state.applications.find((a) => a.id === applicationId)!;
     set({
@@ -116,11 +111,6 @@ export const actions = {
         a.slotId !== app.slotId ? a : a.id === applicationId ? { ...a, status: "selected" } : a.status === "pending" ? { ...a, status: "rejected" } : a,
       ),
     });
-  },
-
-  /** Le coach décline : la salle peut retenir un autre candidat. */
-  decline(applicationId: string) {
-    set({ applications: state.applications.map((a) => (a.id === applicationId ? { ...a, status: "declined" } : a)) });
   },
 
   /** Démo : quelques coachs compatibles postulent. */
@@ -180,13 +170,10 @@ export const actions = {
 /** Nom du coach, pour les messages. */
 export const coachName = (id: string) => coachById(id).name;
 
-export const SLOT_STEPS = ["Publié", "Candidats", "Retenu", "Confirmé", "Réalisé", "Facturé"];
+export const SLOT_STEPS = ["Publié", "Candidats", "Confirmé", "Réalisé", "Facturé"];
 
 /** Étape courante d'un créneau dans le processus de validation. */
-export function slotStep(s: State, slot: Slot) {
-  if (slot.status === "done") return 5;
-  if (slot.status === "filled") return 4;
-  const apps = s.applications.filter((a) => a.slotId === slot.id);
-  if (apps.some((a) => a.status === "offered")) return 2;
-  return apps.some((a) => a.status === "pending") ? 1 : 0;
+/** Étape courante (les précédentes sont faites) ; une séance facturée a tout franchi. */
+export function slotStep(slot: Slot) {
+  return slot.status === "done" ? 5 : slot.status === "filled" ? 3 : 1;
 }

@@ -86,9 +86,7 @@ const STATUS: Record<AnyStatus, { label: string; tone: "open" | "done" | "off" |
   filled: { label: "Confirmé", tone: "done" },
   done: { label: "Terminé", tone: "off" },
   pending: { label: "Envoyée", tone: "wait" },
-  offered: { label: "À confirmer", tone: "wait" },
   selected: { label: "Confirmé", tone: "done" },
-  declined: { label: "Décliné", tone: "off" },
   rejected: { label: "Non retenu", tone: "off" },
   withdrawn: { label: "Retirée", tone: "off" },
 };
