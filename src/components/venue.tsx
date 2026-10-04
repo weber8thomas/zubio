@@ -23,14 +23,14 @@ export function VenueLogo({ venueId, size = "md", className }: { venueId: string
   if (size === "xl" && b.logo)
     return (
       <span className={cn("inline-flex h-20 min-w-20 shrink-0 items-center justify-center rounded-[22px] px-3 py-2.5 sm:h-24 sm:min-w-24", className)} style={{ background: bg }}>
-        <img src={asset(b.logo)} alt={`Logo ${venueById(venueId).name}`} className="max-h-full max-w-[150px] object-contain sm:max-w-[220px]" />
+        <img src={asset(b.logo)} alt={`Logo ${venueById(venueId).name}`} className="h-full w-auto max-w-[150px] object-contain sm:max-w-[220px]" />
       </span>
     );
   const box = { xs: "size-5 rounded-[6px] text-[8px]", sm: "size-9 rounded-[10px] text-[11px]", md: "size-12 rounded-[14px] text-sm", xl: "size-20 rounded-[22px] text-[22px] sm:size-24 sm:text-[26px]" }[size];
   if (b.mark)
     return (
-      <span className={cn(box, "inline-flex shrink-0 items-center justify-center overflow-hidden ring-1 ring-border/70", size === "xs" ? "p-px" : "p-[10%]", className)} style={{ background: bg }}>
-        <img src={asset(b.mark)} alt="" className="max-h-full max-w-full object-contain" />
+      <span className={cn(box, "inline-flex shrink-0 items-center justify-center overflow-hidden ring-1 ring-border/70", { xs: "p-px", sm: "p-1", md: "p-1.5", xl: "p-2.5" }[size], className)} style={{ background: bg }}>
+        <img src={asset(b.mark)} alt="" className="size-full object-contain" />
       </span>
     );
   return (
