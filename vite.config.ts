@@ -8,4 +8,6 @@ export default defineConfig({
   base: process.env.BASE_PATH ?? "/",
   plugins: [react(), tailwindcss()],
   resolve: { alias: { "@": path.resolve(import.meta.dirname, "src") } },
+  // La carte (MapLibre) est un gros module, chargé à part et seulement à l'affichage.
+  build: { chunkSizeWarningLimit: 1200 },
 });
