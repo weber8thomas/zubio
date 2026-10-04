@@ -7,6 +7,7 @@ import { MapView } from "@/components/map";
 import { Chip } from "@/components/pickers";
 import { CoachProfile, Confirmed, SlotFacts, SlotHeader } from "@/components/profiles";
 import { Shell } from "@/components/shell";
+import { VenueProfile } from "@/components/venue";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
@@ -27,13 +28,13 @@ import { cn } from "@/lib/utils";
 export function CoachSpace({ route }: { route: string[] }) {
   const [page, id] = route;
   const tabs = [
-    { href: "#/coach", label: "Explorer", icon: Compass, active: !page || page === "creneau" },
+    { href: "#/coach", label: "Explorer", icon: Compass, active: !page || page === "creneau" || page === "salle" },
     { href: "#/coach/planning", label: "Planning", icon: CalendarDays, active: page === "planning" || page === "mission" },
     { href: "#/coach/profil", label: "Profil", icon: UserRound, active: page === "profil" || page === "facture" },
   ];
   return (
     <Shell space="coach" tabs={tabs} page={route.join("/")}>
-      {page === "creneau" && id ? <SlotPage id={id} /> : page === "planning" ? <Planning /> : page === "mission" && id ? <Mission id={id} /> : page === "profil" ? <Profile /> : page === "facture" && id ? <InvoicePage id={id} back="#/coach/profil" backLabel="Profil" canDecide={false} /> : <Explore />}
+      {page === "creneau" && id ? <SlotPage id={id} /> : page === "planning" ? <Planning /> : page === "mission" && id ? <Mission id={id} /> : page === "profil" ? <Profile /> : page === "salle" && id ? <VenueProfile venueId={id} from={ME} slotHref={(sid) => `#/coach/creneau/${sid}`} /> : page === "facture" && id ? <InvoicePage id={id} back="#/coach/profil" backLabel="Profil" canDecide={false} /> : <Explore />}
     </Shell>
   );
 }
@@ -277,7 +278,7 @@ function SlotPage({ id }: { id: string }) {
     <>
       <BackLink href="#/coach">Explorer</BackLink>
       <div className="mt-2">
-        <SlotHeader slot={slot} status={app ? <Status status={app.status} label={app.status === "pending" ? "Candidature envoyée" : undefined} /> : <Status status={slot.status} />} />
+        <SlotHeader slot={slot} venueHref={`#/coach/salle/${venue.id}`} status={app ? <Status status={app.status} label={app.status === "pending" ? "Candidature envoyée" : undefined} /> : <Status status={slot.status} />} />
       </div>
       {app && (
         <div className="mt-6 rounded-3xl bg-card px-3 py-4 ring-1 ring-border/70">
@@ -501,7 +502,7 @@ function Mission({ id }: { id: string }) {
     <>
       <BackLink href="#/coach/planning">Planning</BackLink>
       <div className="mt-2">
-        <SlotHeader slot={slot} status={<Status status={slot.status} />} />
+        <SlotHeader slot={slot} venueHref={`#/coach/salle/${slot.venueId}`} status={<Status status={slot.status} />} />
       </div>
 
       <div className="mt-6 rounded-3xl bg-card px-3 py-4 ring-1 ring-border/70">

@@ -15,7 +15,15 @@ export type State = {
   invoices?: Record<string, InvoiceStatus>;
   /** Zone d'intervention modifiée par un coach pendant la démo. */
   radius?: Record<string, number>;
+  /** Créneau que la salle est en train de pourvoir (rappel pendant qu'elle parcourt les coachs). */
+  focus?: string;
+  /** Instruction des justificatifs : points contrôlés, journal, compléments demandés (clé « coach:certif »). */
+  review?: Record<string, CertReview>;
 };
+
+export type CertReview = { checks: string[]; log: { at: number; text: string }[]; request?: string };
+const noReview: CertReview = { checks: [], log: [] };
+export const reviewOf = (s: State, key: string) => s.review?.[key] ?? noReview;
 
 const KEY = "zubio-demo-v5";
 const initial = (): State => ({ slots: initialSlots(), applications: INITIAL_APPLICATIONS, invites: INITIAL_INVITES, certs: {} });
@@ -127,6 +135,10 @@ export const actions = {
     return fresh.length;
   },
 
+  setFocus(slotId?: string) {
+    if (state.focus !== slotId) set({ focus: slotId });
+  },
+
   invite(slotId: string, coachId: string) {
     if (!state.invites.some((i) => i.slotId === slotId && i.coachId === coachId)) set({ invites: [...state.invites, { slotId, coachId }] });
   },
@@ -140,8 +152,24 @@ export const actions = {
     set({ invoices: { ...state.invoices, [invoiceId]: status } });
   },
 
-  decideCert(coachId: string, certId: string, status: CertStatus) {
-    set({ certs: { ...state.certs, [`${coachId}:${certId}`]: status } });
+  /** Coche ou décoche un point de contrôle, en le consignant au journal. */
+  check(key: string, item: string, label: string, done: boolean) {
+    const r = reviewOf(state, key);
+    const checks = done ? [...new Set([...r.checks, item])] : r.checks.filter((c) => c !== item);
+    set({ review: { ...state.review, [key]: { ...r, checks, log: [...r.log, { at: Date.now(), text: `${done ? "Contrôlé" : "Annulé"} : ${label}` }] } } });
+  },
+
+  /** Demande un complément au coach : le dossier reste en attente. */
+  requestInfo(key: string, message: string) {
+    const r = reviewOf(state, key);
+    set({ review: { ...state.review, [key]: { ...r, request: message, log: [...r.log, { at: Date.now(), text: `Complément demandé : ${message}` }] } } });
+  },
+
+  decideCert(coachId: string, certId: string, status: CertStatus, note?: string) {
+    const key = `${coachId}:${certId}`;
+    const r = reviewOf(state, key);
+    const text = status === "verified" ? "Certification validée" : status === "rejected" ? `Refusée${note ? ` : ${note}` : ""}` : "Dossier rouvert";
+    set({ certs: { ...state.certs, [key]: status }, review: { ...state.review, [key]: { ...r, request: undefined, log: [...r.log, { at: Date.now(), text }] } } });
   },
 
   reset() {

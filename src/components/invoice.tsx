@@ -1,7 +1,7 @@
 import { FileCode2, Printer } from "lucide-react";
 import { motion } from "motion/react";
 import { Logo } from "@/components/brand";
-import { DocThumb, InvoicePageFrame } from "@/components/docs";
+import { DocThumb } from "@/components/docs";
 import { Button } from "@/components/ui/button";
 import { BILLING } from "@/config/billing";
 import { dayLabel } from "@/lib/date";
@@ -67,73 +67,127 @@ export function InvoiceTimeline({ status }: { status: InvoiceStatus }) {
   );
 }
 
-/** Facture imprimable avec ses mentions obligatoires. */
-export function InvoiceDocument({ inv, bare }: { inv: Invoice; bare?: boolean }) {
+/** Facture au format A4 (794 × 1123 px), mise en page d'un document comptable. */
+export function InvoiceSheet({ inv }: { inv: Invoice }) {
   const fmt = (d: string) => d.split("-").reverse().join("/");
-  const party = (title: string, p: Invoice["seller"]) => (
-    <div>
-      <p className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</p>
-      <p className="mt-1 font-semibold">{p.name}</p>
-      <p className="text-sm">{p.address}</p>
-      <p className="text-sm text-muted-foreground tabular-nums">SIREN {p.siren} (démo)</p>
-      {p.vat && <p className="text-sm text-muted-foreground">TVA {p.vat}</p>}
-    </div>
-  );
+  const presta = inv.kind === "prestation";
+  const exempt = inv.vat === 0;
+  const rows: [string, string][] = [
+    ["Numéro", inv.number],
+    ["Date d'émission", fmt(inv.date)],
+    ["Date de la prestation", fmt(inv.date)],
+    ["Échéance", fmt(inv.due)],
+  ];
   return (
-    <article className={bare ? "" : "rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/70 sm:p-8 print:shadow-none print:ring-0"}>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        {bare ? <span /> : <Logo className="h-7" />}
+    <div className="flex h-full flex-col px-[64px] pt-[56px] pb-[40px] font-sans text-[12.5px] leading-[1.5] text-[#1f1a17]">
+      <div className="h-[4px] w-[56px] bg-[#d63b27]" />
+      <div className="mt-[28px] flex items-start justify-between gap-[40px]">
+        <div className="max-w-[330px]">
+          {presta ? <p className="font-heading text-[17px] font-semibold">{inv.seller.name}</p> : <Logo className="h-[26px]" />}
+          <p className="mt-[8px] text-[#5b524c]">{inv.seller.address}</p>
+          <p className="text-[#5b524c] tabular-nums">SIREN {inv.seller.siren}</p>
+          {inv.seller.vat && <p className="text-[#5b524c]">N° TVA {inv.seller.vat}</p>}
+        </div>
         <div className="text-right">
-          <p className="font-heading text-xl font-extrabold">{inv.kind === "prestation" ? "Facture" : "Facture de commission"}</p>
-          <p className="text-sm text-muted-foreground tabular-nums">N° {inv.number}</p>
-          <p className="text-sm text-muted-foreground">
-            Émise le {fmt(inv.date)} · échéance {fmt(inv.due)}
-          </p>
+          <p className="font-heading text-[26px] leading-none font-extrabold tracking-[0.06em] uppercase">Facture</p>
+          <table className="mt-[14px] ml-auto text-[12px]">
+            <tbody>
+              {rows.map(([k, v]) => (
+                <tr key={k}>
+                  <td className="pr-[14px] text-left text-[#8a7f77]">{k}</td>
+                  <td className="text-right font-semibold tabular-nums">{v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-        {party("Émetteur", inv.seller)}
-        {party("Client", inv.buyer)}
+
+      <div className="mt-[36px] flex justify-end">
+        <div className="w-[320px] rounded-[6px] bg-[#f6f2ec] px-[18px] py-[14px]">
+          <p className="text-[10.5px] font-semibold tracking-[0.12em] text-[#8a7f77] uppercase">Facturé à</p>
+          <p className="mt-[4px] text-[14px] font-semibold">{inv.buyer.name}</p>
+          <p className="text-[#5b524c]">{inv.buyer.address}</p>
+          <p className="text-[#5b524c] tabular-nums">SIREN {inv.buyer.siren}</p>
+        </div>
       </div>
-      <table className="mt-6 w-full text-sm">
+
+      <p className="mt-[28px] text-[#5b524c]">
+        <span className="font-semibold text-[#1f1a17]">Objet :</span> {presta ? "animation d'un cours collectif en remplacement" : "frais de service de la plateforme Zubio"} · réf. mission {inv.slotId.toUpperCase()}
+      </p>
+
+      <table className="mt-[14px] w-full border-collapse text-[12.5px]">
         <thead>
-          <tr className="border-b border-border-strong text-left text-xs text-muted-foreground">
-            <th className="py-2 font-semibold">Désignation</th>
-            <th className="py-2 text-right font-semibold">HT</th>
-            <th className="py-2 pl-3 text-right font-semibold">TVA</th>
+          <tr className="border-b-[1.5px] border-[#1f1a17] text-[10.5px] tracking-[0.08em] text-[#5b524c] uppercase">
+            <th className="py-[8px] text-left font-semibold">Désignation</th>
+            <th className="w-[50px] py-[8px] text-right font-semibold">Qté</th>
+            <th className="w-[96px] py-[8px] text-right font-semibold">PU HT</th>
+            <th className="w-[64px] py-[8px] text-right font-semibold">TVA</th>
+            <th className="w-[104px] py-[8px] text-right font-semibold">Montant HT</th>
           </tr>
         </thead>
         <tbody>
           {inv.lines.map((l) => (
-            <tr key={l.label} className="border-b border-border/70 align-top">
-              <td className="py-3 pr-3">{l.label}</td>
-              <td className="py-3 text-right whitespace-nowrap tabular-nums">{euro(l.qty * l.unit)}</td>
-              <td className="py-3 pl-3 text-right whitespace-nowrap tabular-nums">{l.vatRate ? `${l.vatRate * 100} %` : "—"}</td>
+            <tr key={l.label} className="border-b border-[#e4ddd3] align-top">
+              <td className="py-[12px] pr-[16px]">{l.label}</td>
+              <td className="py-[12px] text-right tabular-nums">{l.qty}</td>
+              <td className="py-[12px] text-right tabular-nums">{euro(l.unit)}</td>
+              <td className="py-[12px] text-right tabular-nums">{l.vatRate ? `${l.vatRate * 100} %` : "—"}</td>
+              <td className="py-[12px] text-right font-semibold tabular-nums">{euro(l.qty * l.unit)}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <dl className="mt-4 ml-auto w-full max-w-60 space-y-1 text-sm tabular-nums">
-        <div className="flex justify-between">
-          <dt className="text-muted-foreground">Total HT</dt>
-          <dd>{euro(inv.ht)}</dd>
+
+      <div className="mt-[18px] flex justify-end">
+        <dl className="w-[280px] tabular-nums">
+          <div className="flex justify-between py-[3px]">
+            <dt className="text-[#5b524c]">Total HT</dt>
+            <dd>{euro(inv.ht)}</dd>
+          </div>
+          <div className="flex justify-between py-[3px]">
+            <dt className="text-[#5b524c]">{exempt ? "TVA (non applicable)" : `TVA ${BILLING.vatRate * 100} %`}</dt>
+            <dd>{euro(inv.vat)}</dd>
+          </div>
+          <div className="mt-[6px] flex justify-between border-t-[1.5px] border-[#1f1a17] pt-[8px] text-[15px] font-bold">
+            <dt>Net à payer</dt>
+            <dd>{euro(inv.ttc)}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div className="mt-[32px] grid grid-cols-2 gap-[32px] border-t border-[#e4ddd3] pt-[18px] text-[11.5px]">
+        <div>
+          <p className="font-semibold">Règlement</p>
+          <p className="mt-[4px] text-[#5b524c]">
+            Virement à {BILLING.paymentDays} jours, au plus tard le {fmt(inv.due)}.
+            <br />
+            IBAN FR76 0000 0000 0000 0000 0000 000 (démo)
+            <br />
+            Référence à rappeler : {inv.number}
+          </p>
         </div>
-        <div className="flex justify-between">
-          <dt className="text-muted-foreground">TVA</dt>
-          <dd>{euro(inv.vat)}</dd>
+        <div>
+          <p className="font-semibold">Mentions</p>
+          <ul className="mt-[4px] space-y-[2px] text-[#5b524c]">
+            {inv.mentions.slice(0, -1).map((m) => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
         </div>
-        <div className="flex justify-between border-t border-border-strong pt-1 font-heading text-lg font-extrabold">
-          <dt>Total TTC</dt>
-          <dd>{euro(inv.ttc)}</dd>
+      </div>
+
+      <div className="mt-auto border-t border-[#e4ddd3] pt-[12px] text-[10px] leading-[1.5] text-[#8a7f77]">
+        <p>{inv.mentions.at(-1)}</p>
+        <div className="mt-[6px] flex justify-between">
+          <span>
+            {inv.seller.name} · SIREN {inv.seller.siren} · {inv.seller.address}
+          </span>
+          <span>Factur-X · EN 16931 · page 1/1</span>
         </div>
-      </dl>
-      <ul className="mt-6 space-y-1 text-xs text-muted-foreground">
-        {inv.mentions.map((m) => (
-          <li key={m}>{m}</li>
-        ))}
-        <li>Facture de démonstration : identités et numéros fictifs, aucun paiement réel.</li>
-      </ul>
-    </article>
+        <p className="mt-[4px] font-semibold text-[#d63b27]">Spécimen de démonstration : identités et numéros fictifs, aucun paiement réel.</p>
+      </div>
+    </div>
   );
 }
 
@@ -153,15 +207,6 @@ export function InvoiceExports({ inv }: { inv: Invoice }) {
 
 export const PLATFORM_NOTE = `Transmise via une plateforme agréée (simulée) : réforme de la facture électronique, réception obligatoire depuis le 1er septembre 2026. ${BILLING.platform.name} émet la facture du coach par mandat.`;
 
-/** Facture au format A4, pour les miniatures et la visionneuse. */
-export const InvoiceA4 = ({ inv }: { inv: Invoice }) => (
-  <InvoicePageFrame>
-    <div style={{ zoom: 1.45 }}>
-      <InvoiceDocument inv={inv} bare />
-    </div>
-  </InvoicePageFrame>
-);
-
 /** Rangée de miniatures cliquables des dernières factures. */
 export function InvoiceThumbs({ list }: { list: Invoice[] }) {
   if (!list.length) return null;
@@ -169,7 +214,7 @@ export function InvoiceThumbs({ list }: { list: Invoice[] }) {
     <div className="scroll-row -mx-4 flex gap-4 overflow-x-auto px-4 pt-1 pb-3">
       {list.slice(0, 6).map((i) => (
         <DocThumb key={i.id} title={`N° ${i.number}`} subtitle={`${euro(i.ttc)} · ${STATUS_LABEL[i.status]}`} width={120}>
-          <InvoiceA4 inv={i} />
+          <InvoiceSheet inv={i} />
         </DocThumb>
       ))}
     </div>

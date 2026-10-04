@@ -2,8 +2,8 @@ import { BadgeCheck, Download, FileCheck2, Info, Landmark, ReceiptText, X } from
 import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { DocPreview, DocThumb } from "@/components/docs";
-import { InvoiceA4, InvoiceDocument, InvoiceExports, InvoiceRow, InvoiceThumbs, InvoiceTimeline, PLATFORM_NOTE } from "@/components/invoice";
+import { DocPreview } from "@/components/docs";
+import { InvoiceExports, InvoiceSheet, InvoiceRow, InvoiceThumbs, InvoiceTimeline, PLATFORM_NOTE } from "@/components/invoice";
 import { BackLink, Empty, PageTitle, Section } from "@/components/kit";
 import { Chip } from "@/components/pickers";
 import { Button } from "@/components/ui/button";
@@ -107,20 +107,26 @@ export function InvoicePage({ id, back, backLabel, canDecide }: { id: string; ba
           <InvoiceExports inv={inv} />
         </div>
       </div>
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="hidden sm:block print:hidden">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="print:hidden">
+        <dl className="mb-4 grid grid-cols-3 gap-px overflow-hidden rounded-3xl bg-border/70 ring-1 ring-border/70 sm:hidden">
+          {[
+            ["Montant", euro(inv.ttc)],
+            ["Émetteur", inv.seller.name.replace(" (EI)", "")],
+            ["Échéance", inv.due.split("-").reverse().slice(0, 2).join("/")],
+          ].map(([k, v]) => (
+            <div key={k} className="min-w-0 bg-card px-3 py-2.5">
+              <dt className="text-xs text-muted-foreground">{k}</dt>
+              <dd className="truncate text-sm font-semibold tabular-nums">{v}</dd>
+            </div>
+          ))}
+        </dl>
         <DocPreview title={`Facture N° ${inv.number}`}>
-          <InvoiceA4 inv={inv} />
+          <InvoiceSheet inv={inv} />
         </DocPreview>
       </motion.div>
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="sm:hidden print:block">
-        <div className="mb-4 flex items-center gap-4 rounded-3xl bg-card p-3 ring-1 ring-border/70 print:hidden">
-          <DocThumb title="Aperçu A4" subtitle="Toucher pour agrandir" width={84}>
-            <InvoiceA4 inv={inv} />
-          </DocThumb>
-          <p className="text-sm text-muted-foreground">La facture telle qu'elle est transmise : format A4, mentions obligatoires et données structurées Factur-X.</p>
-        </div>
-        <InvoiceDocument inv={inv} />
-      </motion.div>
+      <div className="hidden w-[794px] print:block">
+        <InvoiceSheet inv={inv} />
+      </div>
     </div>
   );
 }

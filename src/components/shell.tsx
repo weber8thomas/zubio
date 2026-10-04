@@ -74,13 +74,18 @@ export function Shell({ space, tabs, page, immersive = false, children }: { spac
       {tabs.length > 0 && !immersive && (
         <nav
           aria-label="Navigation"
-          className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 mx-auto grid max-w-sm auto-cols-fr grid-flow-col gap-1 rounded-full bg-foreground p-1.5 shadow-float md:hidden"
+          className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 mx-auto grid max-w-md auto-cols-fr grid-flow-col gap-0.5 rounded-full bg-foreground p-1.5 shadow-float md:hidden"
         >
           {tabs.map(({ href, label, icon: Icon, active }) => (
-            <a key={href} href={href} aria-current={active ? "page" : undefined} className={cn("relative flex h-12 items-center justify-center gap-2 rounded-full text-sm font-semibold", active ? "text-foreground" : "text-background/70")}>
+            <a
+              key={href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={cn("relative flex h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-full text-[11px] leading-none font-semibold", active ? "text-foreground" : "text-background/70")}
+            >
               {active && <motion.span layoutId="tab-pill-mobile" className="absolute inset-0 rounded-full bg-background" transition={{ type: "spring", stiffness: 420, damping: 34 }} />}
               <Icon className="relative size-5" strokeWidth={2} aria-hidden />
-              <span className={cn("relative", !active && "sr-only")}>{label}</span>
+              <span className="relative max-w-full truncate px-1">{label}</span>
             </a>
           ))}
         </nav>

@@ -1,12 +1,13 @@
-import { CalendarCheck, CheckCheck, ChevronRight, Inbox, LayoutGrid, MapPin, Plus, PlusCircle, ReceiptText, Search, Star, TriangleAlert, Users, UserRoundCheck, Zap } from "lucide-react";
+import { Building2, CalendarCheck, CheckCheck, ChevronRight, Inbox, LayoutGrid, MapPin, Plus, PlusCircle, ReceiptText, Search, Star, TriangleAlert, Users, UserRoundCheck, X, Zap } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarStack, BackLink, ClassTile, Empty, PageTitle, Section, SlotCard, Stat, Status, Steps, Tap, stagger } from "@/components/kit";
 import { MapView } from "@/components/map";
 import { Chip } from "@/components/pickers";
 import { CoachProfile, Confirmed, SlotFacts, SlotHeader, teachable } from "@/components/profiles";
 import { Shell } from "@/components/shell";
+import { VenueProfile } from "@/components/venue";
 import { SalleInvoices, InvoicePage } from "./billing";
 import { PublishWizard } from "./publish";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import type { CategoryId, Slot } from "@/data/types";
 import { dayLabel, endOf, today } from "@/lib/date";
 import { distanceKm, km } from "@/lib/geo";
 import { fit } from "@/lib/matching";
-import { go } from "@/lib/router";
+import { back, go, previous } from "@/lib/router";
 import { actions, live, matchesFor, slotStep, SLOT_STEPS, myVenue, slotById, type State, useStore } from "@/lib/store";
 
 export function SalleSpace({ route }: { route: string[] }) {
@@ -27,10 +28,11 @@ export function SalleSpace({ route }: { route: string[] }) {
     { href: "#/salle/publier", label: "Publier", icon: PlusCircle, active: page === "publier" },
     { href: "#/salle/coachs", label: "Coachs", icon: Users, active: page === "coachs" || page === "coach" },
     { href: "#/salle/factures", label: "Factures", icon: ReceiptText, active: page === "factures" || page === "facture" },
+    { href: "#/salle/profil", label: "Profil", icon: Building2, active: page === "profil" },
   ];
   return (
     <Shell space="salle" tabs={tabs} page={route.join("/")} immersive={page === "publier"}>
-      {page === "publier" ? <PublishWizard /> : page === "coachs" ? <Catalog /> : page === "coach" && id ? <CoachPage id={id} /> : page === "creneau" && id ? <SlotPage id={id} /> : page === "factures" ? <SalleInvoices /> : page === "facture" && id ? <InvoicePage id={id} back="#/salle/factures" backLabel="Factures" canDecide /> : <Home />}
+      {page === "publier" ? <PublishWizard /> : page === "coachs" ? <Catalog /> : page === "coach" && id ? <CoachPage id={id} /> : page === "creneau" && id ? <SlotPage id={id} /> : page === "profil" ? <MyProfile /> : page === "factures" ? <SalleInvoices /> : page === "facture" && id ? <InvoicePage id={id} back="#/salle/factures" backLabel="Factures" canDecide /> : <Home />}
     </Shell>
   );
 }
@@ -81,7 +83,12 @@ function Home() {
       <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
         <MapPin className="size-4" aria-hidden /> {venue.address}
       </p>
-      <h1 className="mt-1 font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">{venue.name}</h1>
+      <h1 className="mt-1 font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">
+        <a href="#/salle/profil" className="group inline-flex items-center gap-2 hover:underline hover:decoration-border-strong hover:underline-offset-4">
+          {venue.name}
+          <ChevronRight className="size-6 text-muted-foreground transition group-hover:translate-x-0.5" aria-hidden />
+        </a>
+      </h1>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -132,6 +139,8 @@ function SlotPage({ id }: { id: string }) {
   const [reporting, setReporting] = useState(false);
   const slot = slotById(state, id);
   const venue = myVenue();
+  const isOpen = slot?.status === "open";
+  useEffect(() => actions.setFocus(isOpen ? id : undefined), [id, isOpen]);
   if (!slot) return <Empty>Créneau introuvable.</Empty>;
   const apps = state.applications.filter((a) => a.slotId === id && a.status !== "withdrawn");
   const pending = apps.filter((a) => a.status === "pending").length;
@@ -325,6 +334,7 @@ function Catalog() {
 
   return (
     <>
+      <Pourvoir />
       <PageTitle sub={`${list.length} coachs autour de votre salle, du plus proche au plus loin.`}>Coachs du coin</PageTitle>
       <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -387,6 +397,50 @@ function CatChip({ active, onClick, children }: { active: boolean; onClick: () =
   );
 }
 
+/** Rappel du créneau en cours, pendant que la salle parcourt les profils. */
+function Pourvoir({ coachId }: { coachId?: string }) {
+  const state = useStore();
+  const slot = state.focus ? slotById(state, state.focus) : undefined;
+  if (!slot || slot.status !== "open") return null;
+  const venue = myVenue();
+  const app = coachId && state.applications.find((a) => a.slotId === slot.id && a.coachId === coachId && a.status !== "withdrawn");
+  const coach = coachId ? COACHES.find((c) => c.id === coachId) : undefined;
+  const f = coach && fit(live(state, coach), slot, venue, state.certs);
+  const invited = coachId && state.invites.some((i) => i.slotId === slot.id && i.coachId === coachId);
+  const offered = state.applications.some((a) => a.slotId === slot.id && a.status === "offered");
+  const href = `#/salle/creneau/${slot.id}`;
+
+  let action: ReactNode = null;
+  if (coach && app && app.status === "pending" && !offered)
+    action = <Button onClick={() => (actions.offer(app.id), toast(`${coach.name} est retenu·e`, { description: "Le coach doit confirmer sa venue." }))}>Retenir</Button>;
+  else if (coach && app) action = <Status status={app.status} />;
+  else if (coach && f?.ok)
+    action = (
+      <Button variant={invited ? "secondary" : "default"} disabled={!!invited} onClick={() => (actions.invite(slot.id, coach.id), toast.success(`Invitation envoyée à ${coach.name}`))}>
+        {invited ? "Invité·e" : "Inviter à postuler"}
+      </Button>
+    );
+  else if (coach && f) action = <span className="text-xs font-semibold text-warning-ink">{f.reason}</span>;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="sticky top-[4.5rem] z-20 mb-4 flex items-center gap-3 rounded-3xl bg-foreground p-2.5 pl-3 text-background shadow-float md:top-[7.5rem]">
+      <a href={href} onClick={(e) => previous() === href && (e.preventDefault(), back(href))} className="flex min-w-0 flex-1 items-center gap-3">
+        <ClassTile id={slot.classId} size="sm" />
+        <span className="min-w-0">
+          <span className="block text-xs text-background/70">Vous pourvoyez</span>
+          <span className="block truncate text-sm font-semibold">
+            {classById(slot.classId).label} · {dayLabel(slot.date)} {slot.start}
+          </span>
+        </span>
+      </a>
+      {action && <span className="shrink-0 [&>span]:rounded-full [&>span]:bg-background [&>span]:px-2.5 [&>span]:py-1.5">{action}</span>}
+      <button type="button" onClick={() => actions.setFocus(undefined)} aria-label="Masquer le rappel" className="flex size-9 shrink-0 items-center justify-center rounded-full text-background/70 hover:text-background">
+        <X className="size-4" />
+      </button>
+    </motion.div>
+  );
+}
+
 function CoachPage({ id }: { id: string }) {
   const state = useStore();
   const venue = myVenue();
@@ -397,6 +451,7 @@ function CoachPage({ id }: { id: string }) {
 
   return (
     <>
+      <Pourvoir coachId={id} />
       <BackLink href="#/salle/coachs">Coachs du coin</BackLink>
       <div className="mt-4">
         <CoachProfile
@@ -419,7 +474,6 @@ function CoachPage({ id }: { id: string }) {
                           {!f.ok && <span className="block text-xs text-warning-ink">{f.issues.includes("Certification") ? `Certification ${label} manquante` : f.reason}</span>}
                         </span>
                         <Button
-                          size="sm"
                           variant={invited(s.id) ? "secondary" : f.ok ? "default" : "outline"}
                           disabled={invited(s.id)}
                           onClick={() => {
@@ -439,5 +493,23 @@ function CoachPage({ id }: { id: string }) {
         />
       </div>
     </>
+  );
+}
+
+function MyProfile() {
+  const venue = myVenue();
+  return (
+    <VenueProfile
+      venueId={venue.id}
+      actions={
+        <div className="rounded-3xl bg-primary-soft p-4 text-sm text-primary-ink">
+          <p className="font-semibold">Votre fiche, vue par les coachs</p>
+          <p className="mt-1">Une fiche complète et des paiements rapides attirent plus de candidatures.</p>
+          <Button variant="outline" className="mt-3 bg-card" onClick={() => toast("Édition simulée", { description: "Dans la vraie app : photos, studios, consignes d'accès." })}>
+            Modifier la fiche
+          </Button>
+        </div>
+      }
+    />
   );
 }

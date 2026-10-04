@@ -220,7 +220,7 @@ export function CoachProfile({ coachId, from, overrides, actions }: { coachId: s
 }
 
 /** En-tête d'un créneau : cours, date, salle. */
-export function SlotHeader({ slot, status }: { slot: Slot; status?: ReactNode }) {
+export function SlotHeader({ slot, status, venueHref }: { slot: Slot; status?: ReactNode; venueHref?: string }) {
   const c = classById(slot.classId);
   const v = venueById(slot.venueId);
   return (
@@ -235,7 +235,14 @@ export function SlotHeader({ slot, status }: { slot: Slot; status?: ReactNode })
           {dayLabel(slot.date, "long")} · {slot.start}–{endOf(slot.start, slot.duration)}
         </p>
         <p className="text-sm text-muted-foreground">
-          {v.name} · {v.town}
+          {venueHref ? (
+            <a href={venueHref} className="font-semibold text-foreground underline decoration-border-strong underline-offset-4 hover:decoration-foreground">
+              {v.name}
+            </a>
+          ) : (
+            v.name
+          )}{" "}
+          · {v.town}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {status}

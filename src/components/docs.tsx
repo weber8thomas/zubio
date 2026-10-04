@@ -1,7 +1,6 @@
 import { FileText, Minus, Plus } from "lucide-react";
 import { motion } from "motion/react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Logo } from "@/components/brand";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { certLabel } from "@/data/classes";
 import { coachById } from "@/data/coaches";
@@ -69,7 +68,7 @@ export function DocViewer({ open, onOpenChange, title, children }: { open: boole
             <Minus className="size-4" />
           </button>
           <span className="w-12 text-center text-xs font-semibold tabular-nums">{Math.round(zoom * 100)} %</span>
-          <button type="button" onClick={() => setZoom((z) => Math.min(2, z + 0.25))} aria-label="Zoomer" className="flex size-9 items-center justify-center rounded-full hover:bg-muted">
+          <button type="button" onClick={() => setZoom((z) => Math.min(3, z + 0.25))} aria-label="Zoomer" className="flex size-9 items-center justify-center rounded-full hover:bg-muted">
             <Plus className="size-4" />
           </button>
         </div>
@@ -127,19 +126,6 @@ export function CertificateDoc({ coachId, certId }: { coachId: string; certId: s
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-/** Pièce jointe d'une facture : sa mise en page A4. */
-export function InvoicePageFrame({ children }: { children: ReactNode }) {
-  return (
-    <div className="relative h-full p-[56px] text-[17px] [&_table]:text-[16px]">
-      <div className="mb-8 flex items-center justify-between">
-        <Logo className="h-9" />
-        <span className="text-[13px] tracking-[0.2em] text-[#756558] uppercase">Facture électronique · spécimen</span>
-      </div>
-      {children}
     </div>
   );
 }

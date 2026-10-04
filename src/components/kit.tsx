@@ -4,6 +4,9 @@ import { type ReactNode, useState } from "react";
 import { CATEGORIES, classById } from "@/data/classes";
 import { COACHES } from "@/data/coaches";
 import type { ApplicationStatus, ClassId, SlotStatus } from "@/data/types";
+import { routeLabel } from "@/lib/nav";
+import { back, previous } from "@/lib/router";
+import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
 // Composants partagés par les trois espaces.
@@ -214,13 +217,20 @@ export const stagger = (i: number) => ({
   transition: { duration: 0.32, delay: Math.min(i, 8) * 0.04, ease: [0.2, 0.8, 0.2, 1] as const },
 });
 
+/** Retour à la page d'où l'on vient (avec sa position), sinon à la page parente. */
 export function BackLink({ href, children }: { href: string; children: ReactNode }) {
+  const state = useStore();
+  const prev = previous();
   return (
-    <a href={href} className="group inline-flex h-10 items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
+    <a
+      href={prev ?? href}
+      onClick={(e) => (e.preventDefault(), back(href))}
+      className="group inline-flex h-10 max-w-full items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground"
+    >
       <span className="transition group-hover:-translate-x-0.5" aria-hidden>
         ←
       </span>
-      {children}
+      <span className="truncate">{prev ? routeLabel(prev, state) : children}</span>
     </a>
   );
 }
