@@ -1,7 +1,7 @@
 import { BadgeCheck, Briefcase, CalendarDays, CircleCheckBig, Clock, Euro, Gauge, Languages, MapPin, Navigation, Package, Repeat, Timer, Users, Zap, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
-import { Avatar, ClassTile, Section, stagger } from "@/components/kit";
+import { Avatar, ClassTile, FigureValue, Section, stagger } from "@/components/kit";
 import { Stars, Reviews } from "@/components/reviews";
 import { Certifications, Skills } from "@/components/skills";
 import { CLASSES, classById, KINDS, LEVELS } from "@/data/classes";
@@ -170,7 +170,7 @@ export function CoachProfile({ coachId, from, overrides, actions }: { coachId: s
                 {k}
               </dt>
               <dd className="mt-1">
-                <span className="block font-heading text-[22px] leading-none font-extrabold tabular-nums">{v}</span>
+                <FigureValue value={v} />
                 <span className="mt-1 block text-[13px] leading-snug text-muted-foreground">{hint}</span>
               </dd>
             </motion.div>

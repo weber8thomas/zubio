@@ -1,7 +1,7 @@
 import { BadgeCheck, CalendarClock, Check, CircleCheckBig, Clock, MapPin, Navigation, Timer, Undo2, Wallet, X } from "lucide-react";
 import { motion } from "motion/react";
 import { type CSSProperties, type ReactNode, useState } from "react";
-import { Avatar, ClassTile, Section, SlotCard, Status, stagger } from "@/components/kit";
+import { Avatar, ClassTile, FigureValue, Section, SlotCard, Status, stagger } from "@/components/kit";
 import { MapView } from "@/components/map";
 import { Stars, since } from "@/components/reviews";
 import { brandOf } from "@/data/brands";
@@ -55,7 +55,7 @@ export function VenueProfile({ venueId, from, slotHref, actions }: { venueId: st
   const perWeek = (id: string) => plan.reduce((t, d) => t + d.classes.filter((c) => c.classId === id).length, 0);
   const byCat = (Object.keys(CATEGORIES) as CategoryId[]).map((c) => [c, v.classes.filter((id) => classById(id).category === c)] as const).filter(([, list]) => list.length);
   const figures: [typeof Wallet, string, string, string][] = [
-    [Wallet, "Paiement", `${p.paymentDays} j`, "délai moyen après la séance"],
+    [Wallet, "Paiement", `${p.paymentDays} jours`, "délai moyen après la séance"],
     [Timer, "Réponse", `${p.responseMin} min`, "pour confirmer un coach"],
     [Undo2, "Annulations", `${p.cancel} %`, "des créneaux publiés"],
     [CircleCheckBig, "Missions", String(18 + p.reviewCount * 2), `sur Zubio depuis ${p.since}`],
@@ -112,7 +112,7 @@ export function VenueProfile({ venueId, from, slotHref, actions }: { venueId: st
                 <Icon className="size-3.5" aria-hidden /> {k}
               </dt>
               <dd className="mt-1">
-                <span className="block font-heading text-[22px] leading-none font-extrabold tabular-nums">{val}</span>
+                <FigureValue value={val} />
                 <span className="mt-1 block text-[13px] leading-snug text-muted-foreground">{hint}</span>
               </dd>
             </motion.div>

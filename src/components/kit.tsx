@@ -266,3 +266,14 @@ export function Steps({ steps, current }: { steps: string[]; current: number }) 
     </ol>
   );
 }
+
+/** Chiffre clé : nombre en police de titre, unité (« jours », « min », « % ») en police de texte, plus lisible. */
+export function FigureValue({ value }: { value: string }) {
+  const [num, ...unit] = value.split(" ");
+  return (
+    <span className="block leading-none whitespace-nowrap">
+      <span className="font-heading text-[22px] font-extrabold tabular-nums">{num}</span>
+      {unit.length > 0 && <span className="ml-1 text-[15px] font-semibold text-ink-soft">{unit.join(" ")}</span>}
+    </span>
+  );
+}
