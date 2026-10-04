@@ -1,4 +1,4 @@
-import { AlertCircle, CalendarDays, CalendarPlus, Check, Compass, List, LocateFixed, Map as MapIcon, MapPin, Phone, UserRound, Wallet, X } from "lucide-react";
+import { AlertCircle, CalendarDays, CalendarPlus, Check, Compass, List, LocateFixed, Map as MapIcon, MapPin, Phone, SlidersHorizontal, UserRound, Wallet, X, Zap } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -9,13 +9,15 @@ import { CoachProfile, Confirmed, SlotFacts, SlotHeader } from "@/components/pro
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { MARKET } from "@/config/market";
 import { CATEGORIES, classById } from "@/data/classes";
 import { ME } from "@/data/coaches";
 import type { CategoryId, Point, Slot } from "@/data/types";
-import { dayLabel, endOf, today } from "@/lib/date";
+import { addDays, dayLabel, endOf, today } from "@/lib/date";
 import { distanceKm, inMarket, km } from "@/lib/geo";
 import { fit } from "@/lib/matching";
 import { go } from "@/lib/router";
@@ -39,27 +41,42 @@ export function CoachSpace({ route }: { route: string[] }) {
 const myApp = (s: State, slotId: string) => s.applications.find((a) => a.slotId === slotId && a.coachId === ME.id && a.status !== "withdrawn");
 const invitedTo = (s: State, slotId: string) => s.invites.some((i) => i.slotId === slotId && i.coachId === ME.id);
 
+type Sort = "date" | "distance" | "prix";
+const SORTS: Record<Sort, string> = { date: "Plus tôt", distance: "Plus proche", prix: "Mieux payé" };
+const WHEN = { all: "Toutes dates", today: "Aujourd'hui", tomorrow: "Demain", week: "7 jours" } as const;
+type When = keyof typeof WHEN;
+
 function Explore() {
   const state = useStore();
-  const [origin, setOrigin] = useState<Point>(ME);
+  const [origin, setOrigin] = useState<Point & { label: string }>({ ...ME, label: `Chez moi · ${ME.town}` });
   const [maxKm, setMaxKm] = useState(15);
   const [cat, setCat] = useState<CategoryId | null>(null);
   const [onlyFit, setOnlyFit] = useState(true);
+  const [when, setWhen] = useState<When>("all");
+  const [sort, setSort] = useState<Sort>("date");
   const [view, setView] = useState<"list" | "map">("list");
+  const [filters, setFilters] = useState(false);
 
+  const t = today();
+  const limit = when === "today" ? t : when === "tomorrow" ? addDays(t, 1) : when === "week" ? addDays(t, 7) : "9999";
   const open = state.slots
-    .filter((s) => s.status === "open" && s.date >= today())
+    .filter((s) => s.status === "open" && s.date >= (when === "tomorrow" ? addDays(t, 1) : t) && s.date <= limit)
     .map((s) => ({ s, v: venueById(s.venueId), f: fit(ME, s, venueById(s.venueId), state.certs) }))
     .map((x) => ({ ...x, d: distanceKm(origin, x.v) }))
     .filter((x) => x.d <= maxKm && (!cat || classById(x.s.classId).category === cat) && (!onlyFit || x.f.ok || invitedTo(state, x.s.id)))
-    .sort((a, b) => +invitedTo(state, b.s.id) - +invitedTo(state, a.s.id) || +b.s.urgent - +a.s.urgent || (a.s.date + a.s.start).localeCompare(b.s.date + b.s.start));
+    .sort(
+      (a, b) =>
+        +invitedTo(state, b.s.id) - +invitedTo(state, a.s.id) ||
+        (sort === "distance" ? a.d - b.d : sort === "prix" ? b.s.price - a.s.price : (a.s.date + a.s.start).localeCompare(b.s.date + b.s.start)),
+    );
   const covered = inMarket(origin);
+  const active = [cat, !onlyFit, maxKm !== 15].filter(Boolean).length;
 
   function locate() {
     if (!navigator.geolocation) return toast.error("Géolocalisation indisponible");
     navigator.geolocation.getCurrentPosition(
       (p) => {
-        const here = { lat: p.coords.latitude, lng: p.coords.longitude };
+        const here = { lat: p.coords.latitude, lng: p.coords.longitude, label: "Ma position" };
         setOrigin(here);
         toast(inMarket(here) ? "Créneaux autour de vous" : "Zubio n'est pas encore ouvert ici");
       },
@@ -69,47 +86,50 @@ function Explore() {
 
   return (
     <>
-      <p className="text-sm font-medium text-muted-foreground">Bonjour {ME.name.split(" ")[0]}</p>
-      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Créneaux près de vous</h1>
+      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Trouver un créneau</h1>
 
-      <div className="mt-5 rounded-3xl bg-card p-4 ring-1 ring-border/70">
-        <div className="flex items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="mb-2 flex items-baseline justify-between text-sm">
-              <span className="font-semibold">Jusqu'à</span>
-              <span className="font-heading font-extrabold tabular-nums">{maxKm} km</span>
-            </div>
-            <Slider value={[maxKm]} min={1} max={30} step={1} onValueChange={([v]) => setMaxKm(v)} aria-label="Distance maximale" />
+      <div className="mt-5 overflow-hidden rounded-3xl bg-card shadow-soft ring-1 ring-border/70">
+        <button type="button" onClick={locate} className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/50">
+          <span className="size-3.5 shrink-0 rounded-full border-[3px] border-primary" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs text-muted-foreground">Autour de</span>
+            <span className="block truncate font-semibold">{origin.label}</span>
+          </span>
+          <LocateFixed className="size-5 text-muted-foreground" aria-label="Me localiser" />
+        </button>
+        <div className="border-t border-border/70 px-4 py-3">
+          <span className="block text-xs text-muted-foreground">Quand</span>
+          <div className="scroll-row -mx-1 mt-1.5 flex gap-1.5 overflow-x-auto px-1 pb-1">
+            {(Object.keys(WHEN) as When[]).map((k) => (
+              <Chip key={k} small active={when === k} onClick={() => setWhen(k)}>
+                {WHEN[k]}
+              </Chip>
+            ))}
           </div>
-          <Button variant="outline" size="icon-lg" onClick={locate} aria-label="Me localiser">
-            <LocateFixed />
-          </Button>
         </div>
-        <div className="scroll-row -mx-1 mt-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
-          <Chip small active={onlyFit} onClick={() => setOnlyFit(!onlyFit)}>
-            {onlyFit ? "✓ " : ""}Compatibles
-          </Chip>
-          <Chip small active={!cat} onClick={() => setCat(null)}>
-            Tous les cours
-          </Chip>
-          {(Object.keys(CATEGORIES) as CategoryId[]).map((k) => (
-            <Chip key={k} small active={cat === k} onClick={() => setCat(cat === k ? null : k)}>
-              {CATEGORIES[k].label}
-            </Chip>
-          ))}
-        </div>
+        <button type="button" onClick={() => setFilters(true)} className="flex w-full items-center gap-3 border-t border-border/70 px-4 py-3.5 text-left hover:bg-muted/50">
+          <SlidersHorizontal className="size-5 text-muted-foreground" aria-hidden />
+          <span className="flex-1 font-semibold">
+            {cat ? CATEGORIES[cat].label : "Tous les cours"} · {maxKm} km{onlyFit ? " · compatibles" : ""}
+          </span>
+          {active > 0 && <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">{active}</span>}
+        </button>
       </div>
 
-      <div className="mt-6 mb-3 flex items-center justify-between">
-        <h2 className="font-heading text-[17px] font-semibold">
-          {open.length} créneau{open.length > 1 ? "x" : ""}
-        </h2>
-        <div className="flex rounded-full bg-muted p-1">
+      <div className="mt-6 mb-3 flex items-center justify-between gap-3">
+        <div className="scroll-row -mx-1 flex min-w-0 gap-1 overflow-x-auto px-1">
+          {(Object.keys(SORTS) as Sort[]).map((k) => (
+            <button key={k} type="button" onClick={() => setSort(k)} aria-pressed={sort === k} className={cn("relative h-9 shrink-0 rounded-full px-3 text-sm font-semibold", sort === k ? "text-foreground" : "text-muted-foreground")}>
+              {sort === k && <motion.span layoutId="sort-pill" className="absolute inset-0 rounded-full bg-muted" />}
+              <span className="relative">{SORTS[k]}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex shrink-0 rounded-full bg-muted p-1">
           {(["list", "map"] as const).map((v) => (
-            <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} className={cn("relative flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold", view === v ? "text-foreground" : "text-muted-foreground")}>
+            <button key={v} type="button" onClick={() => setView(v)} aria-label={v === "list" ? "Liste" : "Carte"} aria-pressed={view === v} className={cn("relative flex size-9 items-center justify-center rounded-full", view === v ? "text-foreground" : "text-muted-foreground")}>
               {view === v && <motion.span layoutId="view-pill" className="absolute inset-0 rounded-full bg-card shadow-soft" />}
               {v === "list" ? <List className="relative size-4" /> : <MapIcon className="relative size-4" />}
-              <span className="relative">{v === "list" ? "Liste" : "Carte"}</span>
             </button>
           ))}
         </div>
@@ -133,38 +153,83 @@ function Explore() {
             ]}
           />
         </div>
-      ) : (
+      ) : open.length ? (
         <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {open.map(({ s, v, f, d }, i) => (
-            <motion.li key={s.id} {...stagger(i)}>
-              <SlotTile slot={s} venueName={`${v.name} · ${km(d)}`} fitOk={f.ok} reason={f.reason} applied={!!myApp(state, s.id)} invited={invitedTo(state, s.id)} />
+            <motion.li key={s.id} layout {...stagger(i)}>
+              <SlotTile slot={s} venueName={v.name} where={`${v.town} · ${km(d)}`} fitOk={f.ok} reason={f.reason} applied={!!myApp(state, s.id)} invited={invitedTo(state, s.id)} />
             </motion.li>
           ))}
         </ul>
+      ) : (
+        <Empty>Rien pour ces critères. Élargissez la distance ou les dates.</Empty>
       )}
-      {covered && !open.length && <Empty>Rien dans ce rayon. Élargissez la distance ou affichez tous les cours.</Empty>}
+
+      <Dialog open={filters} onOpenChange={setFilters}>
+        <DialogContent className="sm:max-w-md">
+          <DialogTitle className="font-heading text-xl">Filtres</DialogTitle>
+          <div className="space-y-6">
+            <div>
+              <div className="mb-2 flex items-baseline justify-between text-sm">
+                <span className="font-semibold">Distance maximale</span>
+                <span className="font-heading font-extrabold tabular-nums">{maxKm} km</span>
+              </div>
+              <Slider value={[maxKm]} min={1} max={30} step={1} onValueChange={([v]) => setMaxKm(v)} aria-label="Distance maximale" />
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-semibold">Cours</p>
+              <div className="flex flex-wrap gap-1.5">
+                <Chip small active={!cat} onClick={() => setCat(null)}>
+                  Tous
+                </Chip>
+                {(Object.keys(CATEGORIES) as CategoryId[]).map((k) => (
+                  <Chip key={k} small active={cat === k} onClick={() => setCat(k)}>
+                    {CATEGORIES[k].label}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+            <label className="flex items-center gap-3">
+              <span className="flex-1">
+                <span className="block font-semibold">Compatibles uniquement</span>
+                <span className="block text-sm text-muted-foreground">Certification, disponibilité et tarif minimum.</span>
+              </span>
+              <Switch checked={onlyFit} onCheckedChange={setOnlyFit} />
+            </label>
+            <Button size="lg" className="w-full" onClick={() => setFilters(false)}>
+              Voir {open.length} créneau{open.length > 1 ? "x" : ""}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
 
-function SlotTile({ slot, venueName, fitOk, reason, applied, invited }: { slot: Slot; venueName: string; fitOk: boolean; reason: string; applied: boolean; invited: boolean }) {
+/** Carte résultat façon frise : début ○ ── fin ●, cours et salle, prix. */
+function SlotTile({ slot, venueName, where, fitOk, reason, applied, invited }: { slot: Slot; venueName: string; where: string; fitOk: boolean; reason: string; applied: boolean; invited: boolean }) {
   return (
     <Tap href={`#/coach/creneau/${slot.id}`} className="h-full rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/70">
-      <div className="flex items-start gap-3">
-        <ClassTile id={slot.classId} />
+      <p className="mb-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{dayLabel(slot.date)}</p>
+      <div className="flex gap-3">
+        <div className="flex w-12 shrink-0 flex-col items-end justify-between py-0.5 text-sm font-bold tabular-nums">
+          <span>{slot.start}</span>
+          <span className="text-muted-foreground">{endOf(slot.start, slot.duration)}</span>
+        </div>
+        <div className="flex flex-col items-center py-1.5" aria-hidden>
+          <span className="size-3 rounded-full border-[3px] border-primary bg-card" />
+          <span className="w-[3px] flex-1 rounded-full bg-primary/30" />
+          <span className="size-3 rounded-full bg-primary" />
+        </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[17px] font-bold">{classById(slot.classId).label}</p>
-          <p className="text-sm font-medium">
-            {dayLabel(slot.date)} · {slot.start}–{endOf(slot.start, slot.duration)}
-          </p>
+          <p className="truncate text-sm font-medium">{venueName}</p>
+          <p className="truncate text-sm text-muted-foreground">{where}</p>
         </div>
         <p className="font-heading text-xl font-extrabold tabular-nums">{slot.price} €</p>
       </div>
-      <p className="mt-3 flex items-center gap-1.5 truncate text-sm text-muted-foreground">
-        <MapPin className="size-4 shrink-0" aria-hidden />
-        {venueName}
-      </p>
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border/70 pt-3">
+        <ClassTile id={slot.classId} size="sm" />
         {applied ? (
           <Status status="pending" label="Candidature envoyée" />
         ) : (
@@ -173,7 +238,12 @@ function SlotTile({ slot, venueName, fitOk, reason, applied, invited }: { slot: 
             {fitOk ? "Compatible" : reason}
           </span>
         )}
-        {invited && <span className="inline-flex h-7 items-center rounded-full bg-primary-soft px-2.5 text-[13px] font-semibold text-primary-ink">Invité·e par la salle</span>}
+        {slot.instant && (
+          <span className="inline-flex h-7 items-center gap-1 rounded-full bg-primary-soft px-2.5 text-[13px] font-semibold text-primary-ink">
+            <Zap className="size-3.5" aria-hidden /> Instantané
+          </span>
+        )}
+        {invited && <span className="inline-flex h-7 items-center rounded-full bg-primary-soft px-2.5 text-[13px] font-semibold text-primary-ink">Invité·e</span>}
         {slot.urgent && <span className="inline-flex h-7 items-center rounded-full bg-warning-soft px-2.5 text-[13px] font-semibold text-warning-ink">Urgent</span>}
       </div>
     </Tap>
@@ -238,23 +308,38 @@ function SlotPage({ id }: { id: string }) {
               </motion.div>
             ) : (
               <motion.div key="apply" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-card p-5 ring-1 ring-border/70">
-                <p className="font-heading text-lg font-semibold">Postuler</p>
+                <p className="font-heading text-lg font-semibold">{slot.instant ? "Réservation instantanée" : "Postuler"}</p>
                 <p className={cn("mt-2 flex items-center gap-1.5 text-sm font-semibold", f.ok ? "text-success-ink" : "text-warning-ink")}>
                   {f.ok ? <Check className="size-4" /> : <AlertCircle className="size-4" />}
                   {f.ok ? "Votre profil correspond à ce créneau." : `À vérifier : ${f.reason.toLowerCase()}`}
                 </p>
                 <Textarea value={message} onChange={(e) => setMessage(e.target.value)} maxLength={240} placeholder="Un mot pour la salle (facultatif)" className="mt-4 min-h-20 rounded-2xl" />
-                <Button
-                  size="lg"
-                  className="mt-4 w-full"
-                  disabled={!f.ok}
-                  onClick={() => {
-                    actions.apply(slot.id, message);
-                    toast.success("Candidature envoyée", { description: `${venue.name} va comparer les profils.` });
-                  }}
-                >
-                  Postuler pour {slot.price} €
-                </Button>
+                {slot.instant ? (
+                  <Button
+                    size="lg"
+                    className="mt-4 w-full"
+                    disabled={!f.ok}
+                    onClick={() => {
+                      actions.book(slot.id);
+                      toast.success("Réservé, c'est confirmé", { description: `${venue.name} est prévenu·e.` });
+                      go(`/coach/mission/${slot.id}`);
+                    }}
+                  >
+                    <Zap /> Réserver pour {slot.price} €
+                  </Button>
+                ) : (
+                  <Button
+                    size="lg"
+                    className="mt-4 w-full"
+                    disabled={!f.ok}
+                    onClick={() => {
+                      actions.apply(slot.id, message);
+                      toast.success("Candidature envoyée", { description: `${venue.name} va comparer les profils.` });
+                    }}
+                  >
+                    Postuler pour {slot.price} €
+                  </Button>
+                )}
                 {!f.ok && <p className="mt-2 text-center text-xs text-muted-foreground">Complétez votre profil ou vos disponibilités pour postuler.</p>}
               </motion.div>
             )}

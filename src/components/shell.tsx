@@ -13,7 +13,7 @@ const SPACES = [
 ];
 
 /** Coque commune : en-tête avec sélecteur d'espace, onglets flottants en bas sur mobile, en haut sur ordinateur. */
-export function Shell({ space, tabs, page, children }: { space: string; tabs: Tab[]; page: string; children: ReactNode }) {
+export function Shell({ space, tabs, page, immersive = false, children }: { space: string; tabs: Tab[]; page: string; immersive?: boolean; children: ReactNode }) {
   return (
     <div className="min-h-dvh pb-32 md:pb-16">
       <header className="sticky top-0 z-30 border-b border-border/60 bg-background/90 backdrop-blur-md">
@@ -71,7 +71,7 @@ export function Shell({ space, tabs, page, children }: { space: string; tabs: Ta
         </AnimatePresence>
       </main>
 
-      {tabs.length > 0 && (
+      {tabs.length > 0 && !immersive && (
         <nav
           aria-label="Navigation"
           className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 mx-auto grid max-w-sm auto-cols-fr grid-flow-col gap-1 rounded-full bg-foreground p-1.5 shadow-float md:hidden"

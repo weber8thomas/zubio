@@ -1,18 +1,14 @@
-import { CalendarDays, Check, ChevronDown, Minus, Plus } from "lucide-react";
+import { Check, ChevronDown, Minus, Plus, Search } from "lucide-react";
 import { motion } from "motion/react";
 import { type ReactNode, useRef, useState } from "react";
-import { fr } from "react-day-picker/locale";
 import { ClassTile } from "@/components/kit";
-import { Calendar } from "@/components/ui/calendar";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { MAX_MONTHS_AHEAD } from "@/config/market";
 import { CATEGORIES, CLASSES, classById } from "@/data/classes";
 import type { CategoryId, ClassId } from "@/data/types";
-import { dayLabel, duration as fmtDuration, endOf, iso, parse, today } from "@/lib/date";
+import { duration as fmtDuration, endOf } from "@/lib/date";
 import { cn } from "@/lib/utils";
 
 // Champs du formulaire de publication. Chacun est utilisable seul.
@@ -28,10 +24,9 @@ export function Label({ children, hint }: { children: ReactNode; hint?: ReactNod
   );
 }
 
-/** Choix du cours : recherche + catégories, cours de la salle en premier. */
+/** Recherche d'un cours dans tout le catalogue, par nom ou catégorie. */
 export function ClassPicker({ value, onChange, featured }: { value: ClassId; onChange: (id: ClassId) => void; featured: ClassId[] }) {
   const [open, setOpen] = useState(false);
-  const c = classById(value);
   const pick = (id: ClassId) => (onChange(id), setOpen(false));
   const item = (id: ClassId) => (
     <CommandItem key={id} value={`${classById(id).label} ${CATEGORIES[classById(id).category].label}`} onSelect={() => pick(id)} className="gap-3 rounded-xl py-2">
@@ -43,12 +38,8 @@ export function ClassPicker({ value, onChange, featured }: { value: ClassId; onC
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className={field}>
-        <ClassTile id={value} size="sm" />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">{c.label}</span>
-          <span className="block text-xs text-muted-foreground">{CATEGORIES[c.category].label}</span>
-        </span>
-        <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
+        <Search className="ml-1 size-5 text-muted-foreground" aria-hidden />
+        <span className="flex-1 text-muted-foreground">BodyPump, aquabike, zumba…</span>
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-md">
@@ -68,38 +59,6 @@ export function ClassPicker({ value, onChange, featured }: { value: ClassId; onC
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-/** Date dans la limite de trois mois. */
-export function DateField({ value, onChange }: { value: string; onChange: (d: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const start = parse(today());
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + MAX_MONTHS_AHEAD);
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button type="button" className={field}>
-          <span className="flex size-9 items-center justify-center rounded-[11px] bg-muted text-ink-soft">
-            <CalendarDays className="size-[18px]" aria-hidden />
-          </span>
-          <span className="flex-1 font-semibold">{dayLabel(value, "long")}</span>
-          <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-2" align="start">
-        <Calendar
-          mode="single"
-          locale={fr}
-          selected={parse(value)}
-          onSelect={(d) => d && (onChange(iso(d)), setOpen(false))}
-          disabled={{ before: start, after: end }}
-          startMonth={start}
-          endMonth={end}
-        />
-      </PopoverContent>
-    </Popover>
   );
 }
 

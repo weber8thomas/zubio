@@ -8,7 +8,7 @@ import { type CertOverrides, fit } from "./matching";
 // État de la démo, gardé dans le navigateur (localStorage). Aucun serveur.
 export type State = { slots: Slot[]; applications: Application[]; invites: Invite[]; certs: CertOverrides };
 
-const KEY = "zubio-demo-v2";
+const KEY = "zubio-demo-v3";
 const initial = (): State => ({ slots: initialSlots(), applications: INITIAL_APPLICATIONS, invites: INITIAL_INVITES, certs: {} });
 
 let state: State = (() => {
@@ -67,6 +67,15 @@ export const actions = {
 
   apply(slotId: string, message: string, coachId = ME.id) {
     set({ applications: [...state.applications, { id: uid(), slotId, coachId, message, status: "pending", at: Date.now() }] });
+  },
+
+  /** Réservation instantanée : le coach est confirmé tout de suite. */
+  book(slotId: string, coachId = ME.id) {
+    const app: Application = { id: uid(), slotId, coachId, message: "", status: "selected", at: Date.now() };
+    set({
+      slots: state.slots.map((s) => (s.id === slotId ? { ...s, status: "filled", coachId, filledAt: Date.now() } : s)),
+      applications: [...state.applications.map((a) => (a.slotId === slotId && a.status === "pending" ? { ...a, status: "rejected" as const } : a)), app],
+    });
   },
 
   withdraw(applicationId: string) {

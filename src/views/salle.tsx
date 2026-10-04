@@ -1,20 +1,19 @@
-import { CalendarCheck, Inbox, LayoutGrid, MapPin, Plus, PlusCircle, Search, Send, Star, Users, UserRoundCheck, Zap } from "lucide-react";
+import { CalendarCheck, Inbox, LayoutGrid, MapPin, Plus, PlusCircle, Search, Star, Users, UserRoundCheck, Zap } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarStack, BackLink, ClassTile, Empty, PageTitle, Section, Stat, Status, Tap, stagger } from "@/components/kit";
 import { MapView, RadiusControl } from "@/components/map";
-import { ClassPicker, DateField, DurationField, Label, Segmented, SelectField, Stepper, TimeField, ToggleRow } from "@/components/pickers";
 import { CoachProfile, Confirmed, SlotFacts, SlotHeader, teachable } from "@/components/profiles";
 import { Shell } from "@/components/shell";
+import { PublishWizard } from "./publish";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { AUDIENCES, CATEGORIES, classById, KINDS, LANGUAGES, LEVELS } from "@/data/classes";
+import { CATEGORIES, classById } from "@/data/classes";
 import { COACHES, coachById } from "@/data/coaches";
-import type { CategoryId, ClassId, Kind, Level, Slot } from "@/data/types";
-import { addDays, dayLabel, endOf, today } from "@/lib/date";
+import type { CategoryId, Slot } from "@/data/types";
+import { dayLabel, endOf, today } from "@/lib/date";
 import { distanceKm, km } from "@/lib/geo";
 import { fit } from "@/lib/matching";
 import { go } from "@/lib/router";
@@ -28,8 +27,8 @@ export function SalleSpace({ route }: { route: string[] }) {
     { href: "#/salle/coachs", label: "Coachs", icon: Users, active: page === "coachs" || page === "coach" },
   ];
   return (
-    <Shell space="salle" tabs={tabs} page={route.join("/")}>
-      {page === "publier" ? <Publish /> : page === "coachs" ? <Catalog /> : page === "coach" && id ? <CoachPage id={id} /> : page === "creneau" && id ? <SlotPage id={id} /> : <Home />}
+    <Shell space="salle" tabs={tabs} page={route.join("/")} immersive={page === "publier"}>
+      {page === "publier" ? <PublishWizard /> : page === "coachs" ? <Catalog /> : page === "coach" && id ? <CoachPage id={id} /> : page === "creneau" && id ? <SlotPage id={id} /> : <Home />}
     </Shell>
   );
 }
@@ -136,153 +135,6 @@ function Home() {
   );
 }
 
-function Publish() {
-  const state = useStore();
-  const venue = myVenue();
-  const [classId, setClassId] = useState<ClassId>(venue.classes[0]);
-  const [date, setDate] = useState(addDays(today(), 1));
-  const [start, setStart] = useState("18:30");
-  const [duration, setDuration] = useState(classById(venue.classes[0]).duration);
-  const [price, setPrice] = useState(classById(venue.classes[0]).avgPrice);
-  const [radiusKm, setRadius] = useState(10);
-  const [capacity, setCapacity] = useState(20);
-  const [level, setLevel] = useState<Level>("tous");
-  const [kind, setKind] = useState<Kind>("remplacement");
-  const [audience, setAudience] = useState(AUDIENCES[0]);
-  const [language, setLanguage] = useState(LANGUAGES[0]);
-  const [recurring, setRecurring] = useState(false);
-  const [weeks, setWeeks] = useState(8);
-  const [urgent, setUrgent] = useState(false);
-  const [equipment, setEquipment] = useState(true);
-  const [notes, setNotes] = useState("");
-
-  const input = { classId, date, start, duration, price, radiusKm, capacity, level, audience, language, kind, urgent, equipment, weeks: recurring ? weeks : 1, notes };
-  const draft: Slot = { ...input, id: "draft", venueId: venue.id, status: "open", publishedAt: 0 };
-  const matches = matchesFor(state, draft);
-  const c = classById(classId);
-
-  function chooseClass(id: ClassId) {
-    setClassId(id);
-    setDuration(classById(id).duration);
-    setPrice(classById(id).avgPrice);
-  }
-
-  function submit() {
-    const id = actions.publish(input);
-    toast.success("Créneau publié", { description: `${matches.length} coach${matches.length > 1 ? "s" : ""} compatible${matches.length > 1 ? "s" : ""} prévenu${matches.length > 1 ? "s" : ""}.` });
-    go(`/salle/creneau/${id}`);
-  }
-
-  return (
-    <div className="mx-auto max-w-2xl">
-      <PageTitle sub="Les coachs certifiés et disponibles autour de votre salle sont prévenus et postulent.">Publier un créneau</PageTitle>
-
-      <div className="space-y-6">
-        <div>
-          <Label>Cours</Label>
-          <ClassPicker value={classId} onChange={chooseClass} featured={venue.classes} />
-          {c.category === "lesmills" && (
-            <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Zap className="size-4 text-primary" aria-hidden /> Programme Les Mills : seuls les coachs licenciés {c.label} seront prévenus.
-            </p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <Label hint="jusqu'à 3 mois">Date</Label>
-            <DateField value={date} onChange={setDate} />
-          </div>
-          <div>
-            <Label>Début</Label>
-            <TimeField value={start} onChange={setStart} />
-          </div>
-        </div>
-
-        <div>
-          <Label>Durée</Label>
-          <DurationField value={duration} onChange={setDuration} start={start} />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <Label hint={`moyenne : ${c.avgPrice} €`}>Tarif de la séance</Label>
-            <Stepper value={price} onChange={setPrice} min={10} max={300} suffix="€" label="le tarif" />
-          </div>
-          <div>
-            <Label>Participants attendus</Label>
-            <Stepper value={capacity} onChange={setCapacity} min={1} max={200} label="le nombre de participants" />
-          </div>
-        </div>
-
-        <div>
-          <Label>Zone de recherche</Label>
-          <div className="overflow-hidden rounded-3xl ring-1 ring-border/70">
-            <MapView
-              className="h-64 sm:h-72"
-              center={venue}
-              radiusKm={radiusKm}
-              zoomKm={Math.max(radiusKm, 4)}
-              markers={[
-                { id: "venue", kind: "venue", lat: venue.lat, lng: venue.lng },
-                ...COACHES.map((co) => ({ id: co.id, kind: "coach" as const, lat: co.lat, lng: co.lng, label: co.id, state: matches.some((m) => m.coach.id === co.id) ? ("active" as const) : ("idle" as const), onClick: () => go(`/salle/coach/${co.id}`) })),
-              ]}
-            />
-            <RadiusControl value={radiusKm} onChange={setRadius} count={matches.length} />
-          </div>
-        </div>
-
-        <div className="rounded-3xl bg-card p-4 ring-1 ring-border/70 sm:p-5">
-          <p className="font-heading text-[15px] font-semibold">Détails de la séance</p>
-          <div className="mt-4 space-y-4">
-            <div>
-              <Label>Type</Label>
-              <Segmented value={kind} onChange={setKind} options={KINDS} />
-            </div>
-            <div>
-              <Label>Niveau</Label>
-              <Segmented value={level} onChange={setLevel} options={LEVELS} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Public</Label>
-                <SelectField value={audience} onChange={setAudience} options={AUDIENCES} label="Public" />
-              </div>
-              <div>
-                <Label>Langue</Label>
-                <SelectField value={language} onChange={setLanguage} options={LANGUAGES} label="Langue" />
-              </div>
-            </div>
-          </div>
-          <div className="mt-2 divide-y divide-border/70">
-            <ToggleRow title="Chaque semaine" text="Même jour, même heure, sur plusieurs semaines." checked={recurring} onChange={setRecurring} />
-            <AnimatePresence initial={false}>
-              {recurring && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                  <div className="py-3">
-                    <Label hint={`jusqu'au ${dayLabel(addDays(date, (weeks - 1) * 7), "long").toLowerCase()}`}>Nombre de semaines</Label>
-                    <Stepper value={weeks} onChange={setWeeks} min={2} max={13} label="le nombre de semaines" />
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <ToggleRow title="Urgent" text="Mis en avant chez les coachs, notification immédiate." checked={urgent} onChange={setUrgent} />
-            <ToggleRow title="Matériel fourni" text="Steps, barres, vélos, son…" checked={equipment} onChange={setEquipment} />
-          </div>
-          <div className="mt-3">
-            <Label>Précisions</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={280} placeholder="Studio 2, playlist à jour, accès par l'entrée arrière…" className="min-h-20 rounded-2xl" />
-          </div>
-        </div>
-
-        <Button size="lg" className="w-full" onClick={submit}>
-          <Send /> Publier · {matches.length} coach{matches.length > 1 ? "s" : ""} prévenu{matches.length > 1 ? "s" : ""}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function SlotPage({ id }: { id: string }) {
   const state = useStore();
   const slot = slotById(state, id);
@@ -336,6 +188,12 @@ function SlotPage({ id }: { id: string }) {
         </div>
 
         <div>
+          {slot.instant && open && (
+            <p className="mb-4 flex items-start gap-2 rounded-3xl bg-primary-soft p-4 text-sm text-primary-ink">
+              <Zap className="mt-0.5 size-4 shrink-0" aria-hidden />
+              Réservation instantanée : le premier coach compatible qui réserve est confirmé automatiquement.
+            </p>
+          )}
           <h2 className="font-heading text-[17px] font-semibold">Candidatures {apps.length > 0 && `· ${apps.length}`}</h2>
           <ul className="mt-3 flex flex-col gap-2">
             <AnimatePresence initial={false}>

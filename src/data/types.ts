@@ -53,6 +53,8 @@ export type Slot = {
   urgent: boolean;
   equipment: boolean;
   weeks: number; // 1 = séance unique, sinon nombre de semaines
+  /** Réservation instantanée : le premier coach compatible qui réserve est confirmé. */
+  instant: boolean;
   notes: string;
   status: SlotStatus;
   coachId?: string;
