@@ -1,354 +1,397 @@
+import { CalendarCheck, Inbox, LayoutGrid, MapPin, Plus, PlusCircle, Search, Send, Star, Users, UserRoundCheck, Zap } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, BadgeCheck, CalendarCheck, ChevronRight, Clock, Heart, LayoutGrid, MapPin, Minus, Plus, PlusCircle, Radar, Search, Star, Users } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { BabMap } from "@/components/bab-map";
-import { Avatar, AvatarStack, Section, SkillChip, SkillTile, Stat, Status } from "@/components/kit";
-import { dayLabel, hours } from "@/lib/format";
+import { Avatar, AvatarStack, BackLink, ClassTile, Empty, PageTitle, Section, Stat, Status, Tap, stagger } from "@/components/kit";
+import { MapView, RadiusControl } from "@/components/map";
+import { ClassPicker, DateField, DurationField, Label, Segmented, SelectField, Stepper, TimeField, ToggleRow } from "@/components/pickers";
+import { CoachProfile, Confirmed, SlotFacts, SlotHeader, teachable } from "@/components/profiles";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { COACHES, coachById, FAVORITES, MY_VENUE, SKILLS, type SkillId, type Slot, skillLabel } from "@/data/demo";
-import { isoWeekday, match } from "@/lib/matching";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { AUDIENCES, CATEGORIES, classById, KINDS, LANGUAGES, LEVELS } from "@/data/classes";
+import { COACHES, coachById } from "@/data/coaches";
+import type { CategoryId, ClassId, Kind, Level, Slot } from "@/data/types";
+import { addDays, dayLabel, endOf, today } from "@/lib/date";
+import { distanceKm, km } from "@/lib/geo";
+import { fit } from "@/lib/matching";
 import { go } from "@/lib/router";
-import { actions, coachesNow, useStore } from "@/lib/store";
-import { cn } from "@/lib/utils";
+import { actions, matchesFor, myVenue, slotById, type State, useStore } from "@/lib/store";
 
 export function SalleSpace({ route }: { route: string[] }) {
   const [page, id] = route;
   const tabs = [
     { href: "#/salle", label: "Accueil", icon: LayoutGrid, active: !page || page === "creneau" },
     { href: "#/salle/publier", label: "Publier", icon: PlusCircle, active: page === "publier" },
-    { href: "#/salle/coachs", label: "Coachs", icon: Users, active: page === "coachs" },
+    { href: "#/salle/coachs", label: "Coachs", icon: Users, active: page === "coachs" || page === "coach" },
   ];
   return (
-    <Shell space="salle" tabs={tabs}>
-      {page === "publier" ? <Publish /> : page === "coachs" ? <Catalog /> : page === "creneau" && id ? <SlotDetail id={id} /> : <Home />}
+    <Shell space="salle" tabs={tabs} page={route.join("/")}>
+      {page === "publier" ? <Publish /> : page === "coachs" ? <Catalog /> : page === "coach" && id ? <CoachPage id={id} /> : page === "creneau" && id ? <SlotPage id={id} /> : <Home />}
     </Shell>
   );
 }
 
-function SlotCard({ slot, asked }: { slot: Slot; asked: string[] }) {
-  const coach = slot.coachId ? coachById(slot.coachId) : null;
+const pendingFor = (s: State, slotId: string) => s.applications.filter((a) => a.slotId === slotId && a.status === "pending");
+
+function SlotCard({ slot, i }: { slot: Slot; i: number }) {
+  const state = useStore();
+  const apps = pendingFor(state, slot.id);
+  const c = classById(slot.classId);
   return (
-    <a
-      href={`#/salle/creneau/${slot.id}`}
-      className="group flex items-center gap-3 rounded-3xl bg-card p-3 pr-4 shadow-soft ring-1 ring-border/60 transition hover:-translate-y-0.5 hover:shadow-lift"
-    >
-      <SkillTile skill={slot.skill} />
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="truncate font-bold">{skillLabel(slot.skill)}</p>
-          <span className="ml-auto font-heading font-bold tabular-nums">{slot.price} €</span>
+    <motion.li {...stagger(i)}>
+      <Tap href={`#/salle/creneau/${slot.id}`} className="rounded-3xl bg-card p-3 pr-4 shadow-soft ring-1 ring-border/70">
+        <div className="flex items-center gap-3">
+          <ClassTile id={slot.classId} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
+              <p className="truncate font-bold">{c.label}</p>
+              <span className="ml-auto font-heading font-extrabold tabular-nums">{slot.price} €</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {dayLabel(slot.date)} · {slot.start}–{endOf(slot.start, slot.duration)}
+            </p>
+          </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          {dayLabel(slot.day)} · {hours(slot.start, slot.end)}
-        </p>
-        <div className="mt-2.5 flex items-center justify-between gap-2">
-          <Status status={slot.status} />
-          {coach ? (
-            <span className="flex min-w-0 items-center gap-2 text-xs font-medium">
-              <span className="truncate">{coach.name}</span>
-              <Avatar name={coach.name} id={coach.id} size="sm" />
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-border/70 pt-3">
+          {slot.status === "open" ? (
+            apps.length ? (
+              <Status status="candidates" label={`${apps.length} candidature${apps.length > 1 ? "s" : ""}`} />
+            ) : (
+              <Status status="open" />
+            )
+          ) : (
+            <Status status={slot.status} />
+          )}
+          {slot.coachId ? (
+            <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
+              <span className="truncate">{coachById(slot.coachId).name}</span>
+              <Avatar id={slot.coachId} size="sm" />
             </span>
           ) : (
-            <AvatarStack people={asked.map(coachById)} />
+            <AvatarStack ids={apps.map((a) => a.coachId)} />
           )}
         </div>
-      </div>
-      <ChevronRight className="size-5 text-muted-foreground transition group-hover:translate-x-0.5" aria-hidden />
-    </a>
+      </Tap>
+    </motion.li>
   );
 }
 
 function Home() {
-  const { slots, offers } = useStore();
-  const mine = slots.filter((s) => s.venueId === MY_VENUE.id);
+  const state = useStore();
+  const venue = myVenue();
+  const mine = state.slots.filter((s) => s.venueId === venue.id && s.date >= today()).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
   const open = mine.filter((s) => s.status === "open");
   const filled = mine.filter((s) => s.status === "filled");
-  const asked = (id: string) => offers.filter((o) => o.slotId === id && o.status !== "declined").map((o) => o.coachId);
+  const toReview = open.reduce((n, s) => n + pendingFor(state, s.id).length, 0);
 
   return (
     <>
       <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-        <MapPin className="size-4" aria-hidden /> {MY_VENUE.town}
+        <MapPin className="size-4" aria-hidden /> {venue.address}
       </p>
-      <h1 className="mt-1 font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">{MY_VENUE.name}</h1>
+      <h1 className="mt-1 font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">{venue.name}</h1>
 
-      <div className="mt-6 overflow-hidden rounded-[28px] bg-primary p-5 text-primary-foreground sm:flex sm:items-center sm:justify-between sm:p-7">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mt-6 rounded-[26px] bg-primary p-5 text-primary-foreground sm:flex sm:items-center sm:justify-between sm:p-7"
+      >
         <div>
-          <p className="font-heading text-lg font-semibold sm:text-xl">Un coach absent ce soir ?</p>
-          <p className="mt-1 text-primary-foreground/80">Publiez le créneau, les coachs compatibles sont prévenus aussitôt.</p>
+          <p className="font-heading text-lg font-semibold sm:text-xl">Un coach absent ?</p>
+          <p className="mt-1 text-primary-foreground/85">Publiez le créneau : les coachs certifiés autour de vous postulent, vous choisissez.</p>
         </div>
-        <Button size="lg" variant="secondary" className="mt-4 w-full bg-card text-foreground hover:bg-card/90 sm:mt-0 sm:w-auto" onClick={() => go("/salle/publier")}>
+        <Button size="lg" variant="secondary" className="mt-4 w-full bg-white text-foreground shadow-none hover:bg-white/90 sm:mt-0 sm:w-auto" onClick={() => go("/salle/publier")}>
           <Plus /> Publier un créneau
         </Button>
-      </div>
+      </motion.div>
 
       <div className="mt-4 grid grid-cols-3 gap-3">
-        <Stat label="À venir" value={open.length + filled.length} icon={CalendarCheck} />
-        <Stat label="Confirmés" value={filled.length} icon={BadgeCheck} />
-        <Stat label="À pourvoir" value={open.length} icon={Search} />
+        <Stat label="À venir" value={mine.length} icon={CalendarCheck} />
+        <Stat label="À examiner" value={toReview} icon={Inbox} />
+        <Stat label="Confirmés" value={filled.length} icon={UserRoundCheck} />
       </div>
 
-      <Section title="En recherche">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {open.length ? open.map((s) => <SlotCard key={s.id} slot={s} asked={asked(s.id)} />) : <Empty text="Tous vos créneaux ont un coach." />}
-        </div>
+      <Section title="À pourvoir">
+        {open.length ? (
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {open.map((s, i) => (
+              <SlotCard key={s.id} slot={s} i={i} />
+            ))}
+          </ul>
+        ) : (
+          <Empty>Tous vos créneaux à venir ont un coach.</Empty>
+        )}
       </Section>
       <Section title="Confirmés">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {filled.map((s) => (
-            <SlotCard key={s.id} slot={s} asked={asked(s.id)} />
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {filled.map((s, i) => (
+            <SlotCard key={s.id} slot={s} i={i} />
           ))}
-        </div>
+        </ul>
       </Section>
     </>
   );
 }
 
-const Empty = ({ text }: { text: string }) => (
-  <p className="rounded-3xl border border-dashed border-border p-6 text-center text-muted-foreground md:col-span-2">{text}</p>
-);
-
-const DURATIONS = [45, 60, 90];
-
 function Publish() {
-  const [skill, setSkill] = useState<SkillId>("pilates");
-  // Demain, ou après-demain si demain est un dimanche (peu de coachs disponibles).
-  const [day, setDay] = useState(isoWeekday(1) === 7 ? 2 : 1);
+  const state = useStore();
+  const venue = myVenue();
+  const [classId, setClassId] = useState<ClassId>(venue.classes[0]);
+  const [date, setDate] = useState(addDays(today(), 1));
   const [start, setStart] = useState("18:30");
-  const [duration, setDuration] = useState(60);
-  const [price, setPrice] = useState(45);
+  const [duration, setDuration] = useState(classById(venue.classes[0]).duration);
+  const [price, setPrice] = useState(classById(venue.classes[0]).avgPrice);
+  const [radiusKm, setRadius] = useState(10);
+  const [capacity, setCapacity] = useState(20);
+  const [level, setLevel] = useState<Level>("tous");
+  const [kind, setKind] = useState<Kind>("remplacement");
+  const [audience, setAudience] = useState(AUDIENCES[0]);
+  const [language, setLanguage] = useState(LANGUAGES[0]);
+  const [recurring, setRecurring] = useState(false);
+  const [weeks, setWeeks] = useState(8);
+  const [urgent, setUrgent] = useState(false);
+  const [equipment, setEquipment] = useState(true);
+  const [notes, setNotes] = useState("");
+
+  const input = { classId, date, start, duration, price, radiusKm, capacity, level, audience, language, kind, urgent, equipment, weeks: recurring ? weeks : 1, notes };
+  const draft: Slot = { ...input, id: "draft", venueId: venue.id, status: "open", publishedAt: 0 };
+  const matches = matchesFor(state, draft);
+  const c = classById(classId);
+
+  function chooseClass(id: ClassId) {
+    setClassId(id);
+    setDuration(classById(id).duration);
+    setPrice(classById(id).avgPrice);
+  }
 
   function submit() {
-    const [h, m] = start.split(":").map(Number);
-    const endMin = h * 60 + m + duration;
-    const end = `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
-    const id = actions.publish({ skill, day, start, end, price });
+    const id = actions.publish(input);
+    toast.success("Créneau publié", { description: `${matches.length} coach${matches.length > 1 ? "s" : ""} compatible${matches.length > 1 ? "s" : ""} prévenu${matches.length > 1 ? "s" : ""}.` });
     go(`/salle/creneau/${id}`);
   }
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Publier un créneau</h1>
-      <p className="mt-1 text-muted-foreground">Quatre choix, et c&apos;est parti.</p>
+      <PageTitle sub="Les coachs certifiés et disponibles autour de votre salle sont prévenus et postulent.">Publier un créneau</PageTitle>
 
-      <Field label="Discipline">
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {SKILLS.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setSkill(s.id)}
-              aria-pressed={skill === s.id}
-              className={cn(
-                "flex flex-col items-center gap-2 rounded-3xl bg-card p-3 text-xs font-semibold ring-1 ring-border/60 transition",
-                skill === s.id ? "ring-2 ring-primary" : "hover:ring-border",
-              )}
-            >
-              <SkillTile skill={s.id} />
-              {s.label}
-            </button>
-          ))}
+      <div className="space-y-6">
+        <div>
+          <Label>Cours</Label>
+          <ClassPicker value={classId} onChange={chooseClass} featured={venue.classes} />
+          {c.category === "lesmills" && (
+            <p className="mt-2 flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Zap className="size-4 text-primary" aria-hidden /> Programme Les Mills : seuls les coachs licenciés {c.label} seront prévenus.
+            </p>
+          )}
         </div>
-      </Field>
 
-      <Field label="Jour">
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
-          {[0, 1, 2, 3, 4, 5, 6].map((d) => (
-            <Chip key={d} active={day === d} onClick={() => setDay(d)}>
-              {dayLabel(d)}
-            </Chip>
-          ))}
-        </div>
-      </Field>
-
-      <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
-        <Field label="Début" htmlFor="start">
-          <input
-            id="start"
-            type="time"
-            step={900}
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-            className="h-12 w-full rounded-2xl bg-card px-4 text-base font-semibold ring-1 ring-border/60 outline-none focus:ring-2 focus:ring-primary"
-          />
-        </Field>
-        <Field label="Durée">
-          <div className="flex gap-2">
-            {DURATIONS.map((d) => (
-              <Chip key={d} active={duration === d} onClick={() => setDuration(d)}>
-                {d === 90 ? "1 h 30" : d === 60 ? "1 h" : "45 min"}
-              </Chip>
-            ))}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label hint="jusqu'à 3 mois">Date</Label>
+            <DateField value={date} onChange={setDate} />
           </div>
-        </Field>
-      </div>
-
-      <Field label="Tarif de la séance">
-        <div className="flex items-center gap-3 rounded-3xl bg-card p-2 ring-1 ring-border/60">
-          <Button size="icon-lg" variant="secondary" aria-label="Baisser le tarif" onClick={() => setPrice((p) => Math.max(20, p - 5))}>
-            <Minus />
-          </Button>
-          <p className="flex-1 text-center font-heading text-3xl font-extrabold tabular-nums">{price} €</p>
-          <Button size="icon-lg" variant="secondary" aria-label="Augmenter le tarif" onClick={() => setPrice((p) => Math.min(200, p + 5))}>
-            <Plus />
-          </Button>
+          <div>
+            <Label>Début</Label>
+            <TimeField value={start} onChange={setStart} />
+          </div>
         </div>
-      </Field>
 
-      <Button size="lg" className="mt-8 w-full" onClick={submit}>
-        <Radar /> Trouver un coach
-      </Button>
+        <div>
+          <Label>Durée</Label>
+          <DurationField value={duration} onChange={setDuration} start={start} />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <Label hint={`moyenne : ${c.avgPrice} €`}>Tarif de la séance</Label>
+            <Stepper value={price} onChange={setPrice} min={10} max={300} suffix="€" label="le tarif" />
+          </div>
+          <div>
+            <Label>Participants attendus</Label>
+            <Stepper value={capacity} onChange={setCapacity} min={1} max={200} label="le nombre de participants" />
+          </div>
+        </div>
+
+        <div>
+          <Label>Zone de recherche</Label>
+          <div className="overflow-hidden rounded-3xl ring-1 ring-border/70">
+            <MapView
+              className="h-64 sm:h-72"
+              center={venue}
+              radiusKm={radiusKm}
+              zoomKm={Math.max(radiusKm, 4)}
+              markers={[
+                { id: "venue", kind: "venue", lat: venue.lat, lng: venue.lng },
+                ...COACHES.map((co) => ({ id: co.id, kind: "coach" as const, lat: co.lat, lng: co.lng, label: co.id, state: matches.some((m) => m.coach.id === co.id) ? ("active" as const) : ("idle" as const), onClick: () => go(`/salle/coach/${co.id}`) })),
+              ]}
+            />
+            <RadiusControl value={radiusKm} onChange={setRadius} count={matches.length} />
+          </div>
+        </div>
+
+        <div className="rounded-3xl bg-card p-4 ring-1 ring-border/70 sm:p-5">
+          <p className="font-heading text-[15px] font-semibold">Détails de la séance</p>
+          <div className="mt-4 space-y-4">
+            <div>
+              <Label>Type</Label>
+              <Segmented value={kind} onChange={setKind} options={KINDS} />
+            </div>
+            <div>
+              <Label>Niveau</Label>
+              <Segmented value={level} onChange={setLevel} options={LEVELS} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Public</Label>
+                <SelectField value={audience} onChange={setAudience} options={AUDIENCES} label="Public" />
+              </div>
+              <div>
+                <Label>Langue</Label>
+                <SelectField value={language} onChange={setLanguage} options={LANGUAGES} label="Langue" />
+              </div>
+            </div>
+          </div>
+          <div className="mt-2 divide-y divide-border/70">
+            <ToggleRow title="Chaque semaine" text="Même jour, même heure, sur plusieurs semaines." checked={recurring} onChange={setRecurring} />
+            <AnimatePresence initial={false}>
+              {recurring && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                  <div className="py-3">
+                    <Label hint={`jusqu'au ${dayLabel(addDays(date, (weeks - 1) * 7), "long").toLowerCase()}`}>Nombre de semaines</Label>
+                    <Stepper value={weeks} onChange={setWeeks} min={2} max={13} label="le nombre de semaines" />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <ToggleRow title="Urgent" text="Mis en avant chez les coachs, notification immédiate." checked={urgent} onChange={setUrgent} />
+            <ToggleRow title="Matériel fourni" text="Steps, barres, vélos, son…" checked={equipment} onChange={setEquipment} />
+          </div>
+          <div className="mt-3">
+            <Label>Précisions</Label>
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={280} placeholder="Studio 2, playlist à jour, accès par l'entrée arrière…" className="min-h-20 rounded-2xl" />
+          </div>
+        </div>
+
+        <Button size="lg" className="w-full" onClick={submit}>
+          <Send /> Publier · {matches.length} coach{matches.length > 1 ? "s" : ""} prévenu{matches.length > 1 ? "s" : ""}
+        </Button>
+      </div>
     </div>
   );
 }
 
-function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
-  return (
-    <div className="mt-6">
-      <label htmlFor={htmlFor} className="mb-2 block text-sm font-semibold">
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
-
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "h-11 shrink-0 rounded-full px-4 text-sm font-semibold whitespace-nowrap transition",
-        active ? "bg-foreground text-background" : "bg-card ring-1 ring-border/60 hover:ring-border",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function SlotDetail({ id }: { id: string }) {
+function SlotPage({ id }: { id: string }) {
   const state = useStore();
-  const slot = state.slots.find((s) => s.id === id);
-  if (!slot) return <Empty text="Créneau introuvable." />;
-  const offers = state.offers.filter((o) => o.slotId === id);
-  const coach = slot.coachId ? coachById(slot.coachId) : null;
-  const misses = slot.status === "open" ? match(slot, MY_VENUE, coachesNow(state)).misses : null;
+  const slot = slotById(state, id);
+  const venue = myVenue();
+  if (!slot) return <Empty>Créneau introuvable.</Empty>;
+  const apps = state.applications.filter((a) => a.slotId === id && a.status !== "withdrawn");
+  const matches = matchesFor(state, slot);
+  const open = slot.status === "open";
 
-  function widen() {
-    const n = actions.widen(slot!.id);
-    toast(n ? `${n} nouveau${n > 1 ? "x" : ""} coach${n > 1 ? "s" : ""} sollicité${n > 1 ? "s" : ""}` : "Aucun nouveau coach dans ce rayon");
+  function simulate() {
+    const n = actions.simulateApplications(slot!.id);
+    toast(n ? `${n} nouvelle${n > 1 ? "s" : ""} candidature${n > 1 ? "s" : ""}` : "Aucun autre coach compatible dans ce rayon");
   }
 
   return (
     <>
-      <a href="#/salle" className="inline-flex h-10 items-center gap-2 text-sm font-semibold text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" aria-hidden /> Tableau de bord
-      </a>
-      <div className="mt-2 flex items-start gap-4">
-        <SkillTile skill={slot.skill} size="lg" />
-        <div className="min-w-0 flex-1">
-          <h1 className="font-heading text-[22px] leading-tight font-extrabold sm:text-[28px]">{skillLabel(slot.skill)}</h1>
-          <p className="text-muted-foreground">
-            {dayLabel(slot.day)} · {hours(slot.start, slot.end)}
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <Status status={slot.status} />
-            <span className="font-heading font-bold tabular-nums">{slot.price} €</span>
-          </div>
-        </div>
+      <BackLink href="#/salle">Tableau de bord</BackLink>
+      <div className="mt-2">
+        <SlotHeader slot={slot} status={<Status status={slot.status === "open" && apps.some((a) => a.status === "pending") ? "candidates" : slot.status} />} />
       </div>
 
       <AnimatePresence>
-        {coach && (
-          <motion.div
-            initial={{ opacity: 0, y: 12, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            className="mt-6 flex items-center gap-4 rounded-[28px] bg-success-soft p-4 sm:p-5"
-          >
-            <Avatar name={coach.name} id={coach.id} size="lg" />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-success-ink">C&apos;est confirmé</p>
-              <p className="text-lg font-bold">{coach.name}</p>
-              <p className="text-sm text-muted-foreground">
-                Pourvu en {slot.filledInMin} min · {coach.rating.toFixed(1)} ★ · {coach.missions} missions
-              </p>
-            </div>
-          </motion.div>
+        {slot.coachId && (
+          <div className="mt-6">
+            <Confirmed coachId={slot.coachId} title="C'est confirmé, des deux côtés" subtitle={`${coachById(slot.coachId).rating.toFixed(1)} ★ · ${coachById(slot.coachId).missions} missions`} />
+          </div>
         )}
       </AnimatePresence>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <div className="overflow-hidden rounded-[28px] ring-1 ring-border/60">
-          <BabMap
-            venue={MY_VENUE}
-            radiusKm={slot.status === "open" ? slot.radiusKm : undefined}
-            focusKm={slot.radiusKm * 1.1}
-            pins={COACHES.map((c) => ({ ...c, active: offers.some((o) => o.coachId === c.id && o.status !== "declined"), photo: true }))}
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="overflow-hidden rounded-3xl ring-1 ring-border/70 lg:sticky lg:top-36 lg:self-start">
+          <MapView
+            className="h-72 sm:h-80"
+            center={venue}
+            radiusKm={open ? slot.radiusKm : undefined}
+            zoomKm={Math.max(slot.radiusKm, 4)}
+            markers={[
+              { id: "venue", kind: "venue", lat: venue.lat, lng: venue.lng },
+              ...COACHES.map((c) => ({
+                id: c.id,
+                kind: "coach" as const,
+                lat: c.lat,
+                lng: c.lng,
+                label: c.id,
+                state: slot.coachId === c.id ? ("selected" as const) : apps.some((a) => a.coachId === c.id) || matches.some((m) => m.coach.id === c.id) ? ("active" as const) : ("idle" as const),
+                onClick: () => go(`/salle/coach/${c.id}`),
+              })),
+            ]}
           />
-          <p className="flex items-center gap-2 bg-card px-4 py-3 text-sm text-muted-foreground">
-            <Radar className="size-4 text-primary" aria-hidden /> Rayon de recherche : {slot.radiusKm} km autour de la salle
-          </p>
+          {open && <RadiusControl value={slot.radiusKm} onChange={(km) => actions.setRadius(slot.id, km)} count={matches.length} />}
         </div>
 
         <div>
-          <h2 className="font-heading text-[17px] font-semibold">Coachs sollicités</h2>
+          <h2 className="font-heading text-[17px] font-semibold">Candidatures {apps.length > 0 && `· ${apps.length}`}</h2>
           <ul className="mt-3 flex flex-col gap-2">
-            <AnimatePresence initial>
-              {offers.map((o, i) => {
-                const c = coachById(o.coachId);
+            <AnimatePresence initial={false}>
+              {apps.map((a, i) => {
+                const c = coachById(a.coachId);
+                const f = fit(c, slot, venue, state.certs);
                 return (
-                  <motion.li
-                    key={o.id}
-                    layout
-                    initial={{ opacity: 0, x: 16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 + i * 0.12 }}
-                    className="flex items-center gap-3 rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/60"
-                  >
-                    <Avatar name={c.name} id={c.id} />
-                    <div className="min-w-0 flex-1">
-                      <p className="flex items-center gap-1.5 truncate font-semibold">
-                        {c.name}
-                        {FAVORITES.includes(c.id) && <Heart className="size-3.5 fill-primary text-primary" aria-label="Favori" />}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">{o.reason}</p>
+                  <motion.li key={a.id} layout {...stagger(i)} className="rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/70">
+                    <div className="flex items-center gap-3">
+                      <a href={`#/salle/coach/${c.id}`} className="shrink-0 transition hover:scale-105">
+                        <Avatar id={c.id} />
+                      </a>
+                      <div className="min-w-0 flex-1">
+                        <a href={`#/salle/coach/${c.id}`} className="block truncate font-bold hover:underline">
+                          {c.name}
+                        </a>
+                        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-0.5">
+                            <Star className="size-3.5 fill-warning text-warning" aria-hidden />
+                            {c.rating.toFixed(1)}
+                          </span>
+                          {km(f.km)} · {c.missions} missions
+                        </p>
+                      </div>
+                      {a.status === "pending" && open ? (
+                        <Button
+                          onClick={() => {
+                            actions.select(a.id);
+                            toast.success(`${c.name} est confirmé·e`, { description: "Les autres candidats sont prévenus." });
+                          }}
+                        >
+                          Choisir
+                        </Button>
+                      ) : (
+                        <Status status={a.status} />
+                      )}
                     </div>
-                    <Status status={o.status} />
+                    {a.message && <p className="mt-2 rounded-2xl bg-muted/70 px-3 py-2 text-sm text-ink-soft">« {a.message} »</p>}
                   </motion.li>
                 );
               })}
             </AnimatePresence>
-            {!offers.length && <Empty text="Aucun coach compatible dans ce rayon." />}
           </ul>
-
-          {slot.status === "open" && (
-            <div className="mt-4 rounded-3xl bg-muted/60 p-4">
-              <div className="flex items-center gap-2">
-                <Clock className="size-4" aria-hidden />
-                <p className="font-semibold">Personne ne répond ?</p>
-                <Badge variant="outline" className="ml-auto">Démo</Badge>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">Simule 10 minutes d&apos;attente : le rayon s&apos;élargit de 6 km.</p>
-              <Button variant="outline" className="mt-3 w-full" onClick={widen} disabled={slot.radiusKm >= 24}>
-                <Radar /> Simuler 10 min sans réponse
+          {!apps.length && <Empty>Pas encore de candidature. {matches.length} coach{matches.length > 1 ? "s" : ""} compatible{matches.length > 1 ? "s ont" : " a"} été prévenu{matches.length > 1 ? "s" : ""}.</Empty>}
+          {open && (
+            <div className="mt-3 flex items-center gap-3 rounded-3xl bg-muted/60 p-3 pl-4">
+              <p className="flex-1 text-sm text-muted-foreground">Pour la démo, faites postuler des coachs compatibles.</p>
+              <Badge variant="outline">Démo</Badge>
+              <Button variant="outline" onClick={simulate}>
+                Simuler
               </Button>
-              {misses && (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Écartés :{" "}
-                  {Object.entries(misses)
-                    .filter(([, n]) => n)
-                    .map(([k, n]) => `${k.toLowerCase()} ${n}`)
-                    .join(" · ")}
-                </p>
-              )}
             </div>
           )}
+
+          <h2 className="mt-8 mb-3 font-heading text-[17px] font-semibold">Détails</h2>
+          <SlotFacts slot={slot} />
         </div>
       </div>
     </>
@@ -356,53 +399,132 @@ function SlotDetail({ id }: { id: string }) {
 }
 
 function Catalog() {
-  const [skill, setSkill] = useState<SkillId | null>(null);
   const state = useStore();
-  const list = coachesNow(state).filter((c) => !skill || c.skills.includes(skill));
+  const venue = myVenue();
+  const [cat, setCat] = useState<CategoryId | null>(null);
+  const [q, setQ] = useState("");
+  const list = useMemo(
+    () =>
+      COACHES.map((c) => ({ c, km: distanceKm(venue, c), classes: teachable(c.id, state.certs) }))
+        .filter(({ c, classes }) => (!cat || classes.some((id) => classById(id).category === cat)) && (!q || `${c.name} ${classes.map((id) => classById(id).label).join(" ")}`.toLowerCase().includes(q.toLowerCase())))
+        .sort((a, b) => a.km - b.km),
+    [cat, q, state.certs, venue],
+  );
 
   return (
     <>
-      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Coachs du coin</h1>
-      <p className="mt-1 text-muted-foreground">{list.length} coachs entre Bayonne, Anglet et Biarritz.</p>
-      <div className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
-        <Chip active={!skill} onClick={() => setSkill(null)}>Tous</Chip>
-        {SKILLS.map((s) => (
-          <Chip key={s.id} active={skill === s.id} onClick={() => setSkill(s.id)}>
-            {s.label}
-          </Chip>
+      <PageTitle sub={`${list.length} coachs autour de votre salle, du plus proche au plus loin.`}>Coachs du coin</PageTitle>
+      <div className="relative">
+        <Search className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom, cours (BodyPump, aquabike…)" className="h-12 rounded-full bg-card pl-10" aria-label="Rechercher un coach" />
+      </div>
+      <div className="scroll-row -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+        <CatChip active={!cat} onClick={() => setCat(null)}>
+          Tous
+        </CatChip>
+        {(Object.keys(CATEGORIES) as CategoryId[]).map((k) => (
+          <CatChip key={k} active={cat === k} onClick={() => setCat(k)}>
+            {CATEGORIES[k].label}
+          </CatChip>
         ))}
       </div>
       <ul className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2">
-        {list.map((c) => (
-          <li key={c.id} className="rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-            <div className="flex items-center gap-3">
-              <Avatar name={c.name} id={c.id} />
-              <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1.5 truncate font-bold">
-                  {c.name}
-                  {FAVORITES.includes(c.id) && <Heart className="size-3.5 fill-primary text-primary" aria-label="Favori" />}
-                </p>
-                <p className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1"><MapPin className="size-3.5" aria-hidden />{c.town}</span>
-                  <span className="flex items-center gap-1"><Star className="size-3.5 fill-current" aria-hidden />{c.rating.toFixed(1)}</span>
+        {list.map(({ c, km: d, classes }, i) => (
+          <motion.li key={c.id} {...stagger(i)}>
+            <Tap href={`#/salle/coach/${c.id}`} className="h-full rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/70">
+              <div className="flex items-center gap-3">
+                <Avatar id={c.id} size="lg" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold">{c.name}</p>
+                  <p className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Star className="size-3.5 fill-warning text-warning" aria-hidden />
+                      {c.rating.toFixed(1)}
+                    </span>
+                    <span>{c.town} · {km(d)}</span>
+                  </p>
+                </div>
+                <p className="shrink-0 text-right font-heading font-extrabold">
+                  {c.minHourly} €<span className="text-xs font-medium text-muted-foreground">/h</span>
                 </p>
               </div>
-              <p className="text-right font-heading font-bold">
-                {c.minHourly} €<span className="text-xs font-medium text-muted-foreground">/h</span>
+              <p className="mt-3 line-clamp-2 text-sm text-ink-soft">{c.bio}</p>
+              <p className="mt-2 truncate text-xs font-medium text-muted-foreground">
+                {classes.length ? classes.slice(0, 4).map((id) => classById(id).label).join(" · ") : "Certifications en cours de vérification"}
               </p>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {c.skills.map((s) => (
-                <SkillChip key={s} skill={s} />
-              ))}
-            </div>
-            <p className={cn("mt-3 flex items-center gap-1.5 text-xs font-semibold", c.diploma.verified ? "text-success-ink" : "text-warning-ink")}>
-              <BadgeCheck className="size-4" aria-hidden />
-              {c.diploma.label} · {c.diploma.verified ? "vérifié" : "en attente"}
-            </p>
-          </li>
+            </Tap>
+          </motion.li>
         ))}
       </ul>
+      {!list.length && <Empty>Aucun coach ne correspond.</Empty>}
+    </>
+  );
+}
+
+function CatChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <motion.button
+      type="button"
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      aria-pressed={active}
+      className={`h-10 shrink-0 rounded-full px-4 text-sm font-semibold whitespace-nowrap transition-colors ${active ? "bg-foreground text-background" : "bg-card ring-1 ring-border/70 hover:ring-border-strong"}`}
+    >
+      {children}
+    </motion.button>
+  );
+}
+
+function CoachPage({ id }: { id: string }) {
+  const state = useStore();
+  const venue = myVenue();
+  const coach = COACHES.find((c) => c.id === id);
+  if (!coach) return <Empty>Coach introuvable.</Empty>;
+  const open = state.slots.filter((s) => s.venueId === venue.id && s.status === "open");
+  const invited = (slotId: string) => state.invites.some((i) => i.slotId === slotId && i.coachId === id);
+
+  return (
+    <>
+      <BackLink href="#/salle/coachs">Coachs du coin</BackLink>
+      <div className="mt-4">
+        <CoachProfile
+          coachId={id}
+          from={venue}
+          overrides={state.certs}
+          actions={
+            open.length > 0 && (
+              <div className="rounded-3xl bg-card p-4 ring-1 ring-border/70">
+                <p className="text-sm font-semibold">Inviter à postuler</p>
+                <ul className="mt-2 flex flex-col gap-2">
+                  {open.map((s) => {
+                    const f = fit(coach, s, venue, state.certs);
+                    return (
+                      <li key={s.id} className="flex items-center gap-3">
+                        <ClassTile id={s.classId} size="sm" />
+                        <span className="min-w-0 flex-1 text-sm">
+                          <b>{classById(s.classId).label}</b> · {dayLabel(s.date)} {s.start}
+                          {!f.ok && <span className="block text-xs text-warning-ink">{f.reason}</span>}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant={invited(s.id) ? "secondary" : "default"}
+                          disabled={invited(s.id)}
+                          onClick={() => {
+                            actions.invite(s.id, id);
+                            toast.success(`Invitation envoyée à ${coach.name}`);
+                          }}
+                        >
+                          {invited(s.id) ? "Invité" : "Inviter"}
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )
+          }
+        />
+      </div>
     </>
   );
 }

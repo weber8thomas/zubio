@@ -9,7 +9,7 @@ export default function App() {
   const [space, ...rest] = useRoute();
   return (
     <>
-      {space === "salle" ? <SalleSpace route={rest} /> : space === "coach" ? <CoachSpace route={rest} /> : space === "admin" ? <AdminSpace /> : <HomePage />}
+      {space === "salle" ? <SalleSpace route={rest} /> : space === "coach" ? <CoachSpace route={rest} /> : space === "admin" ? <AdminSpace route={rest} /> : <HomePage />}
       <Toaster position="top-center" />
     </>
   );

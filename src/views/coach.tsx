@@ -1,197 +1,439 @@
+import { AlertCircle, CalendarDays, CalendarPlus, Check, Compass, List, LocateFixed, Map as MapIcon, MapPin, Phone, UserRound, Wallet, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { BadgeCheck, CalendarDays, Check, Inbox, MapPin, Radar, Star, UserRound, Wallet, X } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { Avatar, Section, SkillChip, SkillTile, Status } from "@/components/kit";
-import { dayLabel, hours } from "@/lib/format";
+import { BackLink, ClassTile, Empty, PageTitle, Section, Status, Tap, stagger } from "@/components/kit";
+import { MapView } from "@/components/map";
+import { Chip } from "@/components/pickers";
+import { CoachProfile, Confirmed, SlotFacts, SlotHeader } from "@/components/profiles";
 import { Shell } from "@/components/shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ME, skillLabel, venueById } from "@/data/demo";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import { MARKET } from "@/config/market";
+import { CATEGORIES, classById } from "@/data/classes";
+import { ME } from "@/data/coaches";
+import type { CategoryId, Point, Slot } from "@/data/types";
+import { dayLabel, endOf, today } from "@/lib/date";
+import { distanceKm, inMarket, km } from "@/lib/geo";
+import { fit } from "@/lib/matching";
 import { go } from "@/lib/router";
-import { actions, useStore } from "@/lib/store";
+import { actions, slotById, type State, useStore, venueById } from "@/lib/store";
+import { cn } from "@/lib/utils";
 
 export function CoachSpace({ route }: { route: string[] }) {
-  const [page] = route;
+  const [page, id] = route;
   const tabs = [
-    { href: "#/coach", label: "Offres", icon: Inbox, active: !page },
-    { href: "#/coach/planning", label: "Planning", icon: CalendarDays, active: page === "planning" },
+    { href: "#/coach", label: "Explorer", icon: Compass, active: !page || page === "creneau" },
+    { href: "#/coach/planning", label: "Planning", icon: CalendarDays, active: page === "planning" || page === "mission" },
     { href: "#/coach/profil", label: "Profil", icon: UserRound, active: page === "profil" },
   ];
-  return <Shell space="coach" tabs={tabs}>{page === "planning" ? <Planning /> : page === "profil" ? <Profile /> : <Offers />}</Shell>;
+  return (
+    <Shell space="coach" tabs={tabs} page={route.join("/")}>
+      {page === "creneau" && id ? <SlotPage id={id} /> : page === "planning" ? <Planning /> : page === "mission" && id ? <Mission id={id} /> : page === "profil" ? <Profile /> : <Explore />}
+    </Shell>
+  );
 }
 
-function Offers() {
-  const { slots, offers } = useStore();
-  const pending = offers
-    .filter((o) => o.coachId === ME.id && o.status === "pending")
-    .map((o) => ({ offer: o, slot: slots.find((s) => s.id === o.slotId)! }))
-    .filter(({ slot }) => slot.status === "open")
-    .reverse(); // les plus récentes en premier
+const myApp = (s: State, slotId: string) => s.applications.find((a) => a.slotId === slotId && a.coachId === ME.id && a.status !== "withdrawn");
+const invitedTo = (s: State, slotId: string) => s.invites.some((i) => i.slotId === slotId && i.coachId === ME.id);
 
-  function accept(offerId: string, venue: string) {
-    if (actions.accept(offerId)) {
-      toast.success(`Mission confirmée chez ${venue}`, { description: "La salle est prévenue à l'instant." });
-      go("/coach/planning");
-    } else toast.error("Trop tard, un autre coach a accepté juste avant.");
+function Explore() {
+  const state = useStore();
+  const [origin, setOrigin] = useState<Point>(ME);
+  const [maxKm, setMaxKm] = useState(15);
+  const [cat, setCat] = useState<CategoryId | null>(null);
+  const [onlyFit, setOnlyFit] = useState(true);
+  const [view, setView] = useState<"list" | "map">("list");
+
+  const open = state.slots
+    .filter((s) => s.status === "open" && s.date >= today())
+    .map((s) => ({ s, v: venueById(s.venueId), f: fit(ME, s, venueById(s.venueId), state.certs) }))
+    .map((x) => ({ ...x, d: distanceKm(origin, x.v) }))
+    .filter((x) => x.d <= maxKm && (!cat || classById(x.s.classId).category === cat) && (!onlyFit || x.f.ok || invitedTo(state, x.s.id)))
+    .sort((a, b) => +invitedTo(state, b.s.id) - +invitedTo(state, a.s.id) || +b.s.urgent - +a.s.urgent || (a.s.date + a.s.start).localeCompare(b.s.date + b.s.start));
+  const covered = inMarket(origin);
+
+  function locate() {
+    if (!navigator.geolocation) return toast.error("Géolocalisation indisponible");
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        const here = { lat: p.coords.latitude, lng: p.coords.longitude };
+        setOrigin(here);
+        toast(inMarket(here) ? "Créneaux autour de vous" : "Zubio n'est pas encore ouvert ici");
+      },
+      () => toast.error("Position refusée : on reste autour de chez vous"),
+    );
   }
 
   return (
     <>
-      <p className="text-sm font-medium text-muted-foreground">Bonjour</p>
-      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">{ME.name.split(" ")[0]}</h1>
-      <p className="mt-1 text-muted-foreground">
-        {pending.length ? `${pending.length} offre${pending.length > 1 ? "s" : ""} pour vous.` : "Aucune offre en attente."}
-      </p>
+      <p className="text-sm font-medium text-muted-foreground">Bonjour {ME.name.split(" ")[0]}</p>
+      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Créneaux près de vous</h1>
 
-      <ul className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <AnimatePresence initial={false}>
-          {pending.map(({ offer, slot }) => {
-            const venue = venueById(slot.venueId);
-            return (
-              <motion.li
-                key={offer.id}
-                layout
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="rounded-[28px] bg-card p-4 shadow-soft ring-1 ring-border/60 sm:p-5"
-              >
-                <div className="flex items-start gap-3">
-                  <SkillTile skill={slot.skill} size="lg" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-lg font-bold">{skillLabel(slot.skill)}</p>
-                    <p className="text-sm font-medium">
-                      {dayLabel(slot.day)} · {hours(slot.start, slot.end)}
-                    </p>
-                  </div>
-                  <p className="font-heading text-2xl font-extrabold tabular-nums">{slot.price} €</p>
-                </div>
-                <p className="mt-3 flex items-center gap-1.5 text-sm">
-                  <MapPin className="size-4 text-muted-foreground" aria-hidden />
-                  {venue.name}, {venue.town}
-                </p>
-                <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Radar className="size-4" aria-hidden />
-                  {offer.reason}
-                </p>
-                <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-2">
-                  <Button size="lg" variant="secondary" aria-label="Refuser" onClick={() => actions.decline(offer.id)}>
-                    <X />
-                  </Button>
-                  <Button size="lg" onClick={() => accept(offer.id, venue.name)}>
-                    <Check /> Accepter
-                  </Button>
-                </div>
-              </motion.li>
-            );
-          })}
-        </AnimatePresence>
-      </ul>
-      {!pending.length && (
-        <p className="mt-6 rounded-3xl border border-dashed border-border p-6 text-center text-muted-foreground">
-          Les salles vous sollicitent automatiquement selon vos disponibilités.
-        </p>
+      <div className="mt-5 rounded-3xl bg-card p-4 ring-1 ring-border/70">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-2 flex items-baseline justify-between text-sm">
+              <span className="font-semibold">Jusqu'à</span>
+              <span className="font-heading font-extrabold tabular-nums">{maxKm} km</span>
+            </div>
+            <Slider value={[maxKm]} min={1} max={30} step={1} onValueChange={([v]) => setMaxKm(v)} aria-label="Distance maximale" />
+          </div>
+          <Button variant="outline" size="icon-lg" onClick={locate} aria-label="Me localiser">
+            <LocateFixed />
+          </Button>
+        </div>
+        <div className="scroll-row -mx-1 mt-4 flex gap-1.5 overflow-x-auto px-1 pb-1">
+          <Chip small active={onlyFit} onClick={() => setOnlyFit(!onlyFit)}>
+            {onlyFit ? "✓ " : ""}Compatibles
+          </Chip>
+          <Chip small active={!cat} onClick={() => setCat(null)}>
+            Tous les cours
+          </Chip>
+          {(Object.keys(CATEGORIES) as CategoryId[]).map((k) => (
+            <Chip key={k} small active={cat === k} onClick={() => setCat(cat === k ? null : k)}>
+              {CATEGORIES[k].label}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-6 mb-3 flex items-center justify-between">
+        <h2 className="font-heading text-[17px] font-semibold">
+          {open.length} créneau{open.length > 1 ? "x" : ""}
+        </h2>
+        <div className="flex rounded-full bg-muted p-1">
+          {(["list", "map"] as const).map((v) => (
+            <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v} className={cn("relative flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold", view === v ? "text-foreground" : "text-muted-foreground")}>
+              {view === v && <motion.span layoutId="view-pill" className="absolute inset-0 rounded-full bg-card shadow-soft" />}
+              {v === "list" ? <List className="relative size-4" /> : <MapIcon className="relative size-4" />}
+              <span className="relative">{v === "list" ? "Liste" : "Carte"}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!covered ? (
+        <Empty>
+          <p className="font-semibold text-foreground">Zubio arrive bientôt ici.</p>
+          <p className="mt-1">Nous démarrons à {MARKET.name}. Laissez votre profil : on vous prévient à l'ouverture.</p>
+        </Empty>
+      ) : view === "map" ? (
+        <div className="overflow-hidden rounded-3xl ring-1 ring-border/70">
+          <MapView
+            className="h-[60dvh] max-h-[560px]"
+            center={origin}
+            zoomKm={maxKm}
+            radiusKm={maxKm}
+            markers={[
+              { id: "me", kind: "venue", lat: origin.lat, lng: origin.lng },
+              ...open.map(({ s, v }, i) => ({ id: s.id, kind: "slot" as const, lat: v.lat + i * 0.0006, lng: v.lng, label: `${s.price} €`, state: s.urgent ? ("active" as const) : ("idle" as const), onClick: () => go(`/coach/creneau/${s.id}`) })),
+            ]}
+          />
+        </div>
+      ) : (
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          {open.map(({ s, v, f, d }, i) => (
+            <motion.li key={s.id} {...stagger(i)}>
+              <SlotTile slot={s} venueName={`${v.name} · ${km(d)}`} fitOk={f.ok} reason={f.reason} applied={!!myApp(state, s.id)} invited={invitedTo(state, s.id)} />
+            </motion.li>
+          ))}
+        </ul>
       )}
+      {covered && !open.length && <Empty>Rien dans ce rayon. Élargissez la distance ou affichez tous les cours.</Empty>}
+    </>
+  );
+}
+
+function SlotTile({ slot, venueName, fitOk, reason, applied, invited }: { slot: Slot; venueName: string; fitOk: boolean; reason: string; applied: boolean; invited: boolean }) {
+  return (
+    <Tap href={`#/coach/creneau/${slot.id}`} className="h-full rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/70">
+      <div className="flex items-start gap-3">
+        <ClassTile id={slot.classId} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[17px] font-bold">{classById(slot.classId).label}</p>
+          <p className="text-sm font-medium">
+            {dayLabel(slot.date)} · {slot.start}–{endOf(slot.start, slot.duration)}
+          </p>
+        </div>
+        <p className="font-heading text-xl font-extrabold tabular-nums">{slot.price} €</p>
+      </div>
+      <p className="mt-3 flex items-center gap-1.5 truncate text-sm text-muted-foreground">
+        <MapPin className="size-4 shrink-0" aria-hidden />
+        {venueName}
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {applied ? (
+          <Status status="pending" label="Candidature envoyée" />
+        ) : (
+          <span className={cn("inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold", fitOk ? "bg-success-soft text-success-ink" : "bg-muted text-muted-foreground")}>
+            {fitOk ? <Check className="size-3.5" aria-hidden /> : <AlertCircle className="size-3.5" aria-hidden />}
+            {fitOk ? "Compatible" : reason}
+          </span>
+        )}
+        {invited && <span className="inline-flex h-7 items-center rounded-full bg-primary-soft px-2.5 text-[13px] font-semibold text-primary-ink">Invité·e par la salle</span>}
+        {slot.urgent && <span className="inline-flex h-7 items-center rounded-full bg-warning-soft px-2.5 text-[13px] font-semibold text-warning-ink">Urgent</span>}
+      </div>
+    </Tap>
+  );
+}
+
+function SlotPage({ id }: { id: string }) {
+  const state = useStore();
+  const slot = slotById(state, id);
+  const [message, setMessage] = useState("");
+  if (!slot) return <Empty>Créneau introuvable.</Empty>;
+  const venue = venueById(slot.venueId);
+  const f = fit(ME, slot, venue, state.certs);
+  const app = myApp(state, id);
+  const mine = slot.coachId === ME.id;
+
+  return (
+    <>
+      <BackLink href="#/coach">Explorer</BackLink>
+      <div className="mt-2">
+        <SlotHeader slot={slot} status={app ? <Status status={app.status} label={app.status === "pending" ? "Candidature envoyée" : undefined} /> : <Status status={slot.status} />} />
+      </div>
+
+      {mine && (
+        <div className="mt-6">
+          <Confirmed coachId={ME.id} title="Vous êtes retenu·e" subtitle={`${venue.name} vous attend.`} />
+        </div>
+      )}
+
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="space-y-6">
+          <div className="overflow-hidden rounded-3xl ring-1 ring-border/70">
+            <MapView
+              className="h-64"
+              center={venue}
+              zoomKm={Math.max(distanceKm(ME, venue) * 1.2, 2)}
+              markers={[
+                { id: "venue", kind: "venue", lat: venue.lat, lng: venue.lng },
+                { id: "me", kind: "coach", lat: ME.lat, lng: ME.lng, label: ME.id, state: "active" },
+              ]}
+            />
+            <p className="flex items-center gap-2 bg-card px-4 py-3 text-sm">
+              <MapPin className="size-4 text-primary" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">
+                {venue.address}
+              </span>
+              <span className="font-semibold">{km(f.km)}</span>
+            </p>
+          </div>
+          <SlotFacts slot={slot} />
+        </div>
+
+        <div>
+          <AnimatePresence mode="wait" initial={false}>
+            {slot.status !== "open" ? null : app ? (
+              <motion.div key="applied" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="rounded-3xl bg-warning-soft p-5">
+                <p className="font-heading text-lg font-semibold">Candidature envoyée</p>
+                <p className="mt-1 text-sm text-ink-soft">La salle compare les profils et vous répond vite. Vous êtes prévenu·e dès qu'elle choisit.</p>
+                <Button variant="outline" className="mt-4" onClick={() => (actions.withdraw(app.id), toast("Candidature retirée"))}>
+                  <X /> Retirer ma candidature
+                </Button>
+              </motion.div>
+            ) : (
+              <motion.div key="apply" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl bg-card p-5 ring-1 ring-border/70">
+                <p className="font-heading text-lg font-semibold">Postuler</p>
+                <p className={cn("mt-2 flex items-center gap-1.5 text-sm font-semibold", f.ok ? "text-success-ink" : "text-warning-ink")}>
+                  {f.ok ? <Check className="size-4" /> : <AlertCircle className="size-4" />}
+                  {f.ok ? "Votre profil correspond à ce créneau." : `À vérifier : ${f.reason.toLowerCase()}`}
+                </p>
+                <Textarea value={message} onChange={(e) => setMessage(e.target.value)} maxLength={240} placeholder="Un mot pour la salle (facultatif)" className="mt-4 min-h-20 rounded-2xl" />
+                <Button
+                  size="lg"
+                  className="mt-4 w-full"
+                  disabled={!f.ok}
+                  onClick={() => {
+                    actions.apply(slot.id, message);
+                    toast.success("Candidature envoyée", { description: `${venue.name} va comparer les profils.` });
+                  }}
+                >
+                  Postuler pour {slot.price} €
+                </Button>
+                {!f.ok && <p className="mt-2 text-center text-xs text-muted-foreground">Complétez votre profil ou vos disponibilités pour postuler.</p>}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
     </>
   );
 }
 
 function Planning() {
-  const { slots } = useStore();
-  const mine = slots.filter((s) => s.coachId === ME.id).sort((a, b) => a.day - b.day);
-  const upcoming = mine.filter((s) => s.status === "filled");
-  const earned = mine.filter((s) => s.status === "done").reduce((t, s) => t + s.price, 0);
-  const planned = upcoming.reduce((t, s) => t + s.price, 0);
+  const state = useStore();
+  const missions = state.slots.filter((s) => s.coachId === ME.id && s.status === "filled" && s.date >= today()).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
+  const apps = state.applications.filter((a) => a.coachId === ME.id && a.status !== "selected").reverse();
 
   return (
     <>
-      <h1 className="font-heading text-[26px] leading-tight font-extrabold sm:text-[32px]">Planning</h1>
-      <div className="mt-6 rounded-[28px] bg-foreground p-5 text-background sm:p-6">
-        <div className="flex items-center gap-2 text-sm text-background/70">
-          <Wallet className="size-4" aria-hidden /> Revenus du mois
-          <Badge variant="outline" className="ml-auto border-background/30 text-background/80">Démo</Badge>
-        </div>
-        <p className="mt-2 font-heading text-[40px] leading-none font-extrabold tabular-nums">{earned + planned} €</p>
-        <p className="mt-1 text-sm text-background/70">
-          {earned} € réalisés · {planned} € à venir
-        </p>
-      </div>
+      <PageTitle>Planning</PageTitle>
+      <Section title="Missions à venir" className="mt-0">
+        {missions.length ? (
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {missions.map((s, i) => {
+              const v = venueById(s.venueId);
+              return (
+                <motion.li key={s.id} {...stagger(i)}>
+                  <Tap href={`#/coach/mission/${s.id}`} className="flex items-center gap-3 rounded-3xl bg-card p-3 pr-4 shadow-soft ring-1 ring-border/70">
+                    <ClassTile id={s.classId} />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold">
+                        {dayLabel(s.date)} · {s.start}
+                      </p>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {classById(s.classId).label} · {v.name}
+                      </p>
+                    </div>
+                    <Status status="filled" />
+                  </Tap>
+                </motion.li>
+              );
+            })}
+          </ul>
+        ) : (
+          <Empty>Aucune mission confirmée pour l'instant.</Empty>
+        )}
+      </Section>
 
-      <Section title="Missions à venir">
-        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {upcoming.map((s) => {
-            const venue = venueById(s.venueId);
-            return (
-              <li key={s.id} className="flex items-center gap-3 rounded-3xl bg-card p-3 pr-4 shadow-soft ring-1 ring-border/60">
-                <SkillTile skill={s.skill} />
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold">{dayLabel(s.day)} · {s.start}</p>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {skillLabel(s.skill)} · {venue.name}
-                  </p>
-                </div>
-                <Status status={s.status} />
-              </li>
-            );
-          })}
-        </ul>
+      <Section title="Mes candidatures">
+        {apps.length ? (
+          <ul className="flex flex-col gap-2">
+            {apps.map((a, i) => {
+              const s = slotById(state, a.slotId)!;
+              return (
+                <motion.li key={a.id} {...stagger(i)}>
+                  <Tap href={`#/coach/creneau/${s.id}`} className="flex items-center gap-3 rounded-3xl bg-card p-3 pr-4 ring-1 ring-border/70">
+                    <ClassTile id={s.classId} size="sm" />
+                    <p className="min-w-0 flex-1 truncate text-sm">
+                      <b>{classById(s.classId).label}</b> · {venueById(s.venueId).name} · {dayLabel(s.date)}
+                    </p>
+                    <Status status={a.status} />
+                  </Tap>
+                </motion.li>
+              );
+            })}
+          </ul>
+        ) : (
+          <Empty>Vous n'avez pas encore postulé.</Empty>
+        )}
       </Section>
     </>
   );
 }
 
-const WEEK = ["L", "M", "M", "J", "V", "S", "D"];
+/** Fichier calendrier (.ics) pour une mission. */
+function downloadIcs(slot: Slot) {
+  const v = venueById(slot.venueId);
+  const dt = (date: string, hm: string) => `${date.replaceAll("-", "")}T${hm.replace(":", "")}00`;
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Zubio//Demo//FR", "BEGIN:VEVENT",
+    `UID:${slot.id}@zubio.demo`, `DTSTART:${dt(slot.date, slot.start)}`, `DTEND:${dt(slot.date, endOf(slot.start, slot.duration))}`,
+    `SUMMARY:${classById(slot.classId).label} · ${v.name}`, `LOCATION:${v.address}`, "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
+  a.download = `zubio-${slot.date}.ics`;
+  a.click();
+}
 
-function Profile() {
+function Mission({ id }: { id: string }) {
+  const state = useStore();
+  const slot = slotById(state, id);
+  if (!slot) return <Empty>Mission introuvable.</Empty>;
+  const v = venueById(slot.venueId);
+  const steps = ["Publié", "Candidature", "Retenu·e", "Séance"];
   return (
     <>
-      <div className="flex items-center gap-4">
-        <Avatar name={ME.name} id={ME.id} size="lg" />
-        <div>
-          <h1 className="font-heading text-[22px] leading-tight font-extrabold sm:text-[28px]">{ME.name}</h1>
-          <p className="flex items-center gap-3 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1"><Star className="size-4 fill-current" aria-hidden />{ME.rating.toFixed(1)}</span>
-            <span>{ME.missions} missions</span>
-            <span className="flex items-center gap-1"><MapPin className="size-4" aria-hidden />{ME.town}</span>
-          </p>
-        </div>
+      <BackLink href="#/coach/planning">Planning</BackLink>
+      <div className="mt-2">
+        <SlotHeader slot={slot} status={<Status status={slot.status} />} />
       </div>
 
-      <Section title="Disciplines">
-        <div className="flex flex-wrap gap-2">
-          {ME.skills.map((s) => (
-            <SkillChip key={s} skill={s} />
-          ))}
-        </div>
-      </Section>
+      <ol className="mt-6 flex items-center">
+        {steps.map((s, i) => (
+          <li key={s} className="flex flex-1 flex-col items-center gap-1.5 text-xs font-medium last:flex-none">
+            <div className="flex w-full items-center">
+              <motion.span
+                initial={{ scale: 0.6 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: i * 0.12 }}
+                className={cn("size-4 shrink-0 rounded-full", i < 3 ? "bg-success" : "border-[3px] border-primary bg-card")}
+              />
+              {i < steps.length - 1 && <motion.span initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.1 + i * 0.12 }} className={cn("h-1 flex-1 origin-left", i < 2 ? "bg-success" : "bg-border")} />}
+            </div>
+            <span className="self-start text-muted-foreground">{s}</span>
+          </li>
+        ))}
+      </ol>
 
-      <Section title="Diplôme">
-        <div className="flex items-center gap-3 rounded-3xl bg-card p-4 shadow-soft ring-1 ring-border/60">
-          <span className="flex size-11 items-center justify-center rounded-2xl bg-success-soft text-success-ink">
-            <BadgeCheck className="size-5" aria-hidden />
-          </span>
-          <div className="flex-1">
-            <p className="font-semibold">{ME.diploma.label}</p>
-            <p className="text-sm text-muted-foreground">Vérifié par l&apos;équipe Zubio</p>
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="overflow-hidden rounded-3xl ring-1 ring-border/70">
+          <MapView className="h-64" center={v} zoomKm={1.2} markers={[{ id: "venue", kind: "venue", lat: v.lat, lng: v.lng }]} />
+          <div className="flex items-center gap-2 bg-card px-4 py-3 text-sm">
+            <MapPin className="size-4 text-primary" aria-hidden />
+            <span className="min-w-0 flex-1 truncate">
+              {v.address}
+            </span>
           </div>
         </div>
-      </Section>
-
-      <Section title="Disponibilités">
-        <div className="grid grid-cols-7 gap-1.5">
-          {WEEK.map((d, i) => {
-            const on = ME.days.includes(i + 1);
-            return (
-              <div key={i} className={on ? "rounded-2xl bg-primary-soft p-2 text-center text-primary-ink" : "rounded-2xl bg-muted p-2 text-center text-muted-foreground"}>
-                <p className="font-bold">{d}</p>
-                <p className="text-[10px] leading-tight">{on ? ME.hours[0] : "—"}</p>
-              </div>
-            );
-          })}
+        <div className="space-y-3">
+          <Button size="lg" className="w-full" onClick={() => downloadIcs(slot)}>
+            <CalendarPlus /> Ajouter à mon calendrier
+          </Button>
+          <Button size="lg" variant="outline" className="w-full" onClick={() => toast("Appel simulé", { description: "Dans la vraie app, on appelle l'accueil de la salle." })}>
+            <Phone /> Contacter {v.name}
+          </Button>
+          <SlotFacts slot={slot} />
         </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          De {ME.hours[0]} à {ME.hours[1]} · jusqu&apos;à {ME.radiusKm} km · dès {ME.minHourly} €/h
-        </p>
+      </div>
+    </>
+  );
+}
+
+function Profile() {
+  const state = useStore();
+  const mine = state.slots.filter((s) => s.coachId === ME.id);
+  const month = today().slice(0, 7);
+  const thisMonth = mine.filter((s) => s.date.startsWith(month));
+  const earned = thisMonth.filter((s) => s.status === "done").reduce((t, s) => t + s.price, 0);
+  const planned = thisMonth.filter((s) => s.status === "filled").reduce((t, s) => t + s.price, 0);
+  const [showIncome, setShowIncome] = useState(false);
+
+  return (
+    <>
+      <CoachProfile coachId={ME.id} overrides={state.certs} />
+      <Section title="Revenus" action={<Badge variant="outline">Démo</Badge>}>
+        <button type="button" onClick={() => setShowIncome(!showIncome)} className="flex w-full items-center gap-3 rounded-3xl bg-card p-4 text-left ring-1 ring-border/70">
+          <span className="flex size-10 items-center justify-center rounded-[12px] bg-muted text-ink-soft">
+            <Wallet className="size-5" aria-hidden />
+          </span>
+          <span className="flex-1">
+            <span className="block font-semibold">Ce mois-ci</span>
+            <span className="text-sm text-muted-foreground">{thisMonth.length} séances</span>
+          </span>
+          <span className="font-heading text-xl font-extrabold tabular-nums">{earned + planned} €</span>
+        </button>
+        <AnimatePresence initial={false}>
+          {showIncome && (
+            <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+              {thisMonth.map((s) => (
+                <li key={s.id} className="flex items-center gap-3 border-b border-border/70 px-2 py-3 text-sm last:border-0">
+                  <ClassTile id={s.classId} size="sm" />
+                  <span className="min-w-0 flex-1 truncate">
+                    {classById(s.classId).label} · {venueById(s.venueId).name} · {dayLabel(s.date)}
+                  </span>
+                  <span className={cn("font-semibold tabular-nums", s.status === "filled" && "text-muted-foreground")}>{s.price} €</span>
+                </li>
+              ))}
+            </motion.ul>
+          )}
+        </AnimatePresence>
       </Section>
     </>
   );

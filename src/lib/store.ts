@@ -1,12 +1,15 @@
 import { useSyncExternalStore } from "react";
-import { COACHES, INITIAL_OFFERS, INITIAL_SLOTS, MY_VENUE, type Offer, type Slot, venueById } from "@/data/demo";
-import { match } from "./matching";
+import { COACHES, coachById, ME } from "@/data/coaches";
+import { INITIAL_APPLICATIONS, INITIAL_INVITES, initialSlots, MY_VENUE_ID } from "@/data/seed";
+import type { Application, CertStatus, Invite, Slot } from "@/data/types";
+import { VENUES } from "@/data/venues";
+import { type CertOverrides, fit } from "./matching";
 
 // État de la démo, gardé dans le navigateur (localStorage). Aucun serveur.
-type State = { slots: Slot[]; offers: Offer[]; verified: string[] };
+export type State = { slots: Slot[]; applications: Application[]; invites: Invite[]; certs: CertOverrides };
 
-const KEY = "zubio-demo-v1";
-const initial = (): State => ({ slots: INITIAL_SLOTS, offers: INITIAL_OFFERS, verified: [] });
+const KEY = "zubio-demo-v2";
+const initial = (): State => ({ slots: initialSlots(), applications: INITIAL_APPLICATIONS, invites: INITIAL_INVITES, certs: {} });
 
 let state: State = (() => {
   try {
@@ -17,8 +20,8 @@ let state: State = (() => {
 })();
 const listeners = new Set<() => void>();
 
-function set(next: State) {
-  state = next;
+function set(next: Partial<State>) {
+  state = { ...state, ...next };
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch {
@@ -33,62 +36,78 @@ export const useStore = () =>
     () => state,
   );
 
-/** Coachs avec les diplômes validés par l'admin pendant la démo. */
-export const coachesNow = (s: State = state) =>
-  COACHES.map((c) => (s.verified.includes(c.id) ? { ...c, diploma: { ...c.diploma, verified: true } } : c));
+export const venueById = (id: string) => VENUES.find((v) => v.id === id) ?? VENUES[0];
+export const myVenue = () => venueById(MY_VENUE_ID);
+export const slotById = (s: State, id: string) => s.slots.find((x) => x.id === id);
+
+/** Coachs compatibles avec un créneau (notifiés), du plus proche au plus loin. */
+export const matchesFor = (s: State, slot: Slot) =>
+  COACHES.map((c) => ({ coach: c, fit: fit(c, slot, venueById(slot.venueId), s.certs) }))
+    .filter((m) => m.fit.ok)
+    .sort((a, b) => b.coach.rating - a.coach.rating || a.fit.km - b.fit.km);
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-/** Offres pour les meilleurs coachs compatibles pas encore sollicités (5 max). */
-function sendOffers(slot: Slot, s: State) {
-  const asked = new Set(s.offers.filter((o) => o.slotId === slot.id).map((o) => o.coachId));
-  return match(slot, venueById(slot.venueId), coachesNow(s))
-    .matches.filter((m) => !asked.has(m.coach.id))
-    .slice(0, 5)
-    .map((m): Offer => ({ id: uid(), slotId: slot.id, coachId: m.coach.id, reason: m.reason, status: "pending" }));
-}
+const MESSAGES = [
+  "Disponible et motivé·e, je connais bien ce format.",
+  "Je donne ce cours chaque semaine dans une autre salle du coin.",
+  "Partant·e ! Je peux arriver un peu avant pour préparer la salle.",
+];
 
 export const actions = {
-  publish(input: Pick<Slot, "skill" | "day" | "start" | "end" | "price">) {
-    const slot: Slot = { ...input, id: uid(), venueId: MY_VENUE.id, radiusKm: 6, status: "open" };
-    const offers = sendOffers(slot, state);
-    set({ ...state, slots: [...state.slots, slot], offers: [...state.offers, ...offers] });
+  publish(input: Omit<Slot, "id" | "status" | "publishedAt" | "venueId">) {
+    const slot: Slot = { ...input, id: uid(), venueId: MY_VENUE_ID, status: "open", publishedAt: Date.now() };
+    set({ slots: [...state.slots, slot] });
     return slot.id;
   },
 
-  /** Démo : 10 minutes sans réponse, le rayon de recherche s'élargit de 6 km. */
-  widen(slotId: string) {
-    const slot = { ...state.slots.find((s) => s.id === slotId)! };
-    slot.radiusKm = Math.min(slot.radiusKm + 6, 24);
-    const offers = sendOffers(slot, state);
-    set({ ...state, slots: state.slots.map((s) => (s.id === slotId ? slot : s)), offers: [...state.offers, ...offers] });
-    return offers.length;
+  setRadius(slotId: string, radiusKm: number) {
+    set({ slots: state.slots.map((s) => (s.id === slotId ? { ...s, radiusKm } : s)) });
   },
 
-  /** Le premier coach qui accepte est confirmé ; les autres offres expirent. */
-  accept(offerId: string) {
-    const offer = state.offers.find((o) => o.id === offerId)!;
-    const slot = state.slots.find((s) => s.id === offer.slotId)!;
-    if (slot.status !== "open") return false;
+  apply(slotId: string, message: string, coachId = ME.id) {
+    set({ applications: [...state.applications, { id: uid(), slotId, coachId, message, status: "pending", at: Date.now() }] });
+  },
+
+  withdraw(applicationId: string) {
+    set({ applications: state.applications.map((a) => (a.id === applicationId ? { ...a, status: "withdrawn" } : a)) });
+  },
+
+  /** La salle choisit un candidat : créneau confirmé, les autres candidatures sont closes. */
+  select(applicationId: string) {
+    const app = state.applications.find((a) => a.id === applicationId)!;
     set({
-      ...state,
-      slots: state.slots.map((s) => (s.id === slot.id ? { ...s, status: "filled", coachId: offer.coachId, filledInMin: 3 } : s)),
-      offers: state.offers.map((o) =>
-        o.slotId !== slot.id ? o : { ...o, status: o.id === offerId ? "accepted" : o.status === "pending" ? "expired" : o.status },
+      slots: state.slots.map((s) => (s.id === app.slotId ? { ...s, status: "filled", coachId: app.coachId, filledAt: Date.now() } : s)),
+      applications: state.applications.map((a) =>
+        a.slotId !== app.slotId || a.status !== "pending" ? a : { ...a, status: a.id === applicationId ? "selected" : "rejected" },
       ),
     });
-    return true;
   },
 
-  decline(offerId: string) {
-    set({ ...state, offers: state.offers.map((o) => (o.id === offerId ? { ...o, status: "declined" } : o)) });
+  /** Démo : quelques coachs compatibles postulent. */
+  simulateApplications(slotId: string) {
+    const slot = slotById(state, slotId)!;
+    const already = new Set(state.applications.filter((a) => a.slotId === slotId).map((a) => a.coachId));
+    const fresh = matchesFor(state, slot)
+      .filter((m) => !already.has(m.coach.id) && m.coach.id !== ME.id)
+      .slice(0, 3)
+      .map((m, i): Application => ({ id: uid(), slotId, coachId: m.coach.id, message: MESSAGES[i % MESSAGES.length], status: "pending", at: Date.now() + i }));
+    set({ applications: [...state.applications, ...fresh] });
+    return fresh.length;
   },
 
-  verify(coachId: string) {
-    set({ ...state, verified: [...state.verified, coachId] });
+  invite(slotId: string, coachId: string) {
+    if (!state.invites.some((i) => i.slotId === slotId && i.coachId === coachId)) set({ invites: [...state.invites, { slotId, coachId }] });
+  },
+
+  decideCert(coachId: string, certId: string, status: CertStatus) {
+    set({ certs: { ...state.certs, [`${coachId}:${certId}`]: status } });
   },
 
   reset() {
     set(initial());
   },
 };
+
+/** Nom du coach, pour les messages. */
+export const coachName = (id: string) => coachById(id).name;

@@ -1,54 +1,31 @@
-import { type Coach, type Point, type Slot, FAVORITES } from "@/data/demo";
+import { classById } from "@/data/classes";
+import type { CertStatus, Coach, Slot, Venue } from "@/data/types";
+import { endOf, toMin, weekday } from "./date";
+import { distanceKm, km } from "./geo";
 
-export function distanceKm(a: Point, b: Point) {
-  const r = (d: number) => (d * Math.PI) / 180;
-  const h = Math.sin(r(b.lat - a.lat) / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(r(b.lng - a.lng) / 2) ** 2;
-  return 12742 * Math.asin(Math.sqrt(h));
-}
+export type Issue = "Certification" | "Distance" | "Disponibilité" | "Tarif";
+export type Fit = { ok: boolean; km: number; issues: Issue[]; reason: string };
 
-/** Jour ISO (1 = lundi … 7 = dimanche) dans `offset` jours. */
-export function isoWeekday(offset: number) {
-  const d = new Date();
-  d.setDate(d.getDate() + offset);
-  return d.getDay() || 7;
-}
-
-const hours = (s: Slot) => (+s.end.slice(0, 2) * 60 + +s.end.slice(3) - (+s.start.slice(0, 2) * 60 + +s.start.slice(3))) / 60;
-
-export type Match = { coach: Coach; km: number; favorite: boolean; reason: string };
-export type Miss = "Discipline" | "Diplôme" | "Distance" | "Disponibilité" | "Tarif";
+/** Statut d'une certification, en tenant compte des décisions de l'admin pendant la démo. */
+export type CertOverrides = Record<string, CertStatus>;
+export const certStatus = (coach: Coach, cert: string, overrides: CertOverrides) =>
+  overrides[`${coach.id}:${cert}`] ?? coach.certs.find((c) => c.id === cert)?.status;
 
 /**
- * Filtres éliminatoires (discipline, diplôme vérifié, distance, disponibilité, tarif),
- * puis classement : favoris, note, distance.
+ * Un coach convient à un créneau s'il a une certification exigée et vérifiée,
+ * s'il est dans le rayon (le sien et celui de la salle), disponible sur toute
+ * la séance, et si le tarif atteint son minimum horaire.
  */
-export function match(slot: Slot, venue: Point, coaches: Coach[]) {
-  const matches: Match[] = [];
-  const misses: Record<Miss, number> = { Discipline: 0, Diplôme: 0, Distance: 0, Disponibilité: 0, Tarif: 0 };
-  const weekday = isoWeekday(slot.day);
-
-  for (const coach of coaches) {
-    const km = distanceKm(venue, coach);
-    const miss: Miss | null = !coach.skills.includes(slot.skill)
-      ? "Discipline"
-      : !coach.diploma.verified
-        ? "Diplôme"
-        : km > Math.min(coach.radiusKm, slot.radiusKm)
-          ? "Distance"
-          : !coach.days.includes(weekday) || slot.start < coach.hours[0] || slot.end > coach.hours[1]
-            ? "Disponibilité"
-            : slot.price / hours(slot) < coach.minHourly
-              ? "Tarif"
-              : null;
-    if (miss) {
-      misses[miss]++;
-      continue;
-    }
-    const favorite = FAVORITES.includes(coach.id);
-    const dist = km < 1 ? "< 1 km" : `${Math.round(km)} km`;
-    matches.push({ coach, km, favorite, reason: [favorite && "Favori", "Diplôme ✓", dist].filter(Boolean).join(" · ") });
-  }
-
-  matches.sort((a, b) => +b.favorite - +a.favorite || b.coach.rating - a.coach.rating || a.km - b.km);
-  return { matches, misses };
+export function fit(coach: Coach, slot: Slot, venue: Venue, overrides: CertOverrides = {}): Fit {
+  const d = distanceKm(venue, coach);
+  const issues: Issue[] = [];
+  const requires = classById(slot.classId).requires;
+  if (!requires.some((c) => certStatus(coach, c, overrides) === "verified")) issues.push("Certification");
+  if (d > Math.min(coach.radiusKm, slot.radiusKm)) issues.push("Distance");
+  const day = weekday(slot.date);
+  const [s, e] = [toMin(slot.start), toMin(endOf(slot.start, slot.duration))];
+  if (!coach.availability.some((a) => a.days.includes(day) && toMin(a.from) <= s && toMin(a.to) >= e)) issues.push("Disponibilité");
+  if (slot.price / (slot.duration / 60) < coach.minHourly) issues.push("Tarif");
+  const reason = issues.length ? issues.join(" · ") : ["Certifié ✓", km(d), "disponible"].join(" · ");
+  return { ok: issues.length === 0, km: d, issues, reason };
 }
