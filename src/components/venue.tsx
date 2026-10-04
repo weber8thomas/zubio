@@ -20,7 +20,12 @@ const asset = (p: string) => `${import.meta.env.BASE_URL}${p}`;
 export function VenueLogo({ venueId, size = "md", className }: { venueId: string; size?: "xs" | "sm" | "md" | "xl"; className?: string }) {
   const b = brandOf(venueId);
   const box = { xs: "size-5 rounded-[6px] text-[8px]", sm: "size-9 rounded-[10px] text-[11px]", md: "size-12 rounded-[14px] text-sm", xl: "size-20 rounded-[22px] text-[22px] sm:size-24 sm:text-[26px]" }[size];
-  if (b.logo) return <img src={asset(b.logo)} alt="" className={cn(box, "shrink-0 bg-white object-contain", className)} />;
+  if (b.logo)
+    return (
+      <span className={cn(box, "inline-flex shrink-0 items-center justify-center overflow-hidden p-[12%]", className)} style={{ background: b.logoOnBrand ? b.primary : "#ffffff" }}>
+        <img src={asset(b.logo)} alt="" className="max-h-full max-w-full object-contain" />
+      </span>
+    );
   return (
     <span className={cn(box, "relative inline-flex shrink-0 items-center justify-center overflow-hidden font-heading font-extrabold tracking-tight", className)} style={{ background: b.primary, color: b.ink }} aria-hidden>
       {b.mono}

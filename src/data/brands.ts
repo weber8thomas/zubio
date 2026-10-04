@@ -1,9 +1,10 @@
 // Identité visuelle des salles : couleurs relevées sur leurs sites officiels (oct. 2026),
-// accroche factuelle, monogramme. Le logo officiel n'est pas reproduit sans l'accord de la salle :
-// déposer le fichier dans public/venues/<id>-logo.svg et renseigner `logo` pour l'afficher.
+// accroche factuelle, logo officiel repris de leur site (démo : salles non partenaires),
+// monogramme à leurs couleurs à défaut.
 // Photos de couverture : Unsplash (licence Unsplash), illustratives.
 
-export type Brand = { primary: string; accent: string; ink: string; tagline: string; mono: string; logo?: string };
+/** `logo` : fichier dans public/ ; `logoOnBrand` : logo clair, posé sur la couleur principale plutôt que sur du blanc. */
+export type Brand = { primary: string; accent: string; ink: string; tagline: string; mono: string; logo?: string; logoOnBrand?: boolean };
 
 export const BRANDS: Record<string, Brand> = {
   "oceania-bayonne": { primary: "#e34100", accent: "#0c4da2", ink: "#ffffff", tagline: "Salle de sport avec piscine, aquagym et fitness", mono: "OC" },
