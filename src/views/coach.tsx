@@ -1,13 +1,12 @@
-import { AlertCircle, CalendarDays, CalendarPlus, Check, ChevronDown, Compass, List, LocateFixed, Map as MapIcon, MapPin, Phone, SlidersHorizontal, UserRound, Wallet, X, Zap } from "lucide-react";
+import { AlertCircle, CalendarDays, CalendarPlus, Check, Compass, List, LocateFixed, Map as MapIcon, MapPin, Phone, Route, SlidersHorizontal, UserRound, X, Zap } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { BackLink, ClassTile, Empty, PageTitle, Section, SlotCard, Status, Tap, stagger } from "@/components/kit";
+import { BackLink, ClassTile, Empty, PageTitle, Section, SlotCard, Status, Steps, Tap, stagger } from "@/components/kit";
 import { MapView } from "@/components/map";
 import { Chip } from "@/components/pickers";
 import { CoachProfile, Confirmed, SlotFacts, SlotHeader } from "@/components/profiles";
 import { Shell } from "@/components/shell";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
@@ -21,7 +20,8 @@ import { addDays, dayLabel, endOf, today } from "@/lib/date";
 import { distanceKm, inMarket, km } from "@/lib/geo";
 import { fit } from "@/lib/matching";
 import { go } from "@/lib/router";
-import { actions, slotById, type State, useStore, venueById } from "@/lib/store";
+import { actions, live, slotById, slotStep, SLOT_STEPS, type State, useStore, venueById } from "@/lib/store";
+import { CoachTax, InvoicePage } from "./billing";
 import { cn } from "@/lib/utils";
 
 export function CoachSpace({ route }: { route: string[] }) {
@@ -29,11 +29,11 @@ export function CoachSpace({ route }: { route: string[] }) {
   const tabs = [
     { href: "#/coach", label: "Explorer", icon: Compass, active: !page || page === "creneau" },
     { href: "#/coach/planning", label: "Planning", icon: CalendarDays, active: page === "planning" || page === "mission" },
-    { href: "#/coach/profil", label: "Profil", icon: UserRound, active: page === "profil" },
+    { href: "#/coach/profil", label: "Profil", icon: UserRound, active: page === "profil" || page === "facture" },
   ];
   return (
     <Shell space="coach" tabs={tabs} page={route.join("/")}>
-      {page === "creneau" && id ? <SlotPage id={id} /> : page === "planning" ? <Planning /> : page === "mission" && id ? <Mission id={id} /> : page === "profil" ? <Profile /> : <Explore />}
+      {page === "creneau" && id ? <SlotPage id={id} /> : page === "planning" ? <Planning /> : page === "mission" && id ? <Mission id={id} /> : page === "profil" ? <Profile /> : page === "facture" && id ? <InvoicePage id={id} back="#/coach/profil" backLabel="Profil" canDecide={false} /> : <Explore />}
     </Shell>
   );
 }
@@ -49,7 +49,8 @@ type When = keyof typeof WHEN;
 function Explore() {
   const state = useStore();
   const [origin, setOrigin] = useState<Point & { label: string }>({ ...ME, label: `Chez moi · ${ME.town}` });
-  const [maxKm, setMaxKm] = useState(15);
+  const me = live(state, ME);
+  const [maxKm, setMaxKm] = useState(me.radiusKm);
   const [cat, setCat] = useState<CategoryId | null>(null);
   const [onlyFit, setOnlyFit] = useState(true);
   const [when, setWhen] = useState<When>("all");
@@ -61,7 +62,7 @@ function Explore() {
   const limit = when === "today" ? t : when === "tomorrow" ? addDays(t, 1) : when === "week" ? addDays(t, 7) : "9999";
   const open = state.slots
     .filter((s) => s.status === "open" && s.date >= (when === "tomorrow" ? addDays(t, 1) : t) && s.date <= limit)
-    .map((s) => ({ s, v: venueById(s.venueId), f: fit(ME, s, venueById(s.venueId), state.certs) }))
+    .map((s) => ({ s, v: venueById(s.venueId), f: fit(me, s, venueById(s.venueId), state.certs) }))
     .map((x) => ({ ...x, d: distanceKm(origin, x.v) }))
     .filter((x) => x.d <= maxKm && (!cat || classById(x.s.classId).category === cat) && (!onlyFit || x.f.ok || invitedTo(state, x.s.id)))
     .sort(
@@ -70,7 +71,7 @@ function Explore() {
         (sort === "distance" ? a.d - b.d : sort === "prix" ? b.s.price - a.s.price : (a.s.date + a.s.start).localeCompare(b.s.date + b.s.start)),
     );
   const covered = inMarket(origin);
-  const active = [cat, !onlyFit, maxKm !== 15].filter(Boolean).length;
+  const active = [cat, !onlyFit, maxKm !== me.radiusKm].filter(Boolean).length;
 
   function locate() {
     if (!navigator.geolocation) return toast.error("Géolocalisation indisponible");
@@ -268,7 +269,7 @@ function SlotPage({ id }: { id: string }) {
   const [message, setMessage] = useState("");
   if (!slot) return <Empty>Créneau introuvable.</Empty>;
   const venue = venueById(slot.venueId);
-  const f = fit(ME, slot, venue, state.certs);
+  const f = fit(live(state, ME), slot, venue, state.certs);
   const app = myApp(state, id);
   const mine = slot.coachId === ME.id;
 
@@ -278,6 +279,11 @@ function SlotPage({ id }: { id: string }) {
       <div className="mt-2">
         <SlotHeader slot={slot} status={app ? <Status status={app.status} label={app.status === "pending" ? "Candidature envoyée" : undefined} /> : <Status status={slot.status} />} />
       </div>
+      {app && (
+        <div className="mt-6 rounded-3xl bg-card px-3 py-4 ring-1 ring-border/70">
+          <Steps steps={["Candidature", "Retenu·e", "Confirmé", "Réalisé", "Payé"]} current={slot.status === "done" ? 4 : mine ? 3 : app.status === "offered" ? 1 : 0} />
+        </div>
+      )}
 
       {mine && (
         <div className="mt-6">
@@ -309,7 +315,24 @@ function SlotPage({ id }: { id: string }) {
         {slot.status === "open" && (
           <div className="order-first lg:sticky lg:top-36 lg:order-none lg:self-start">
             <AnimatePresence mode="wait" initial={false}>
-              {app ? (
+              {app?.status === "offered" ? (
+                <motion.div key="offered" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="rounded-3xl bg-card p-5 shadow-lift ring-2 ring-primary">
+                  <p className="font-heading text-lg font-semibold">{venue.name} vous a retenu·e</p>
+                  <p className="mt-1 text-sm text-ink-soft">Confirmez votre venue sous 12 h. Une fois confirmé, c'est un engagement : en cas d'imprévu, prévenez la salle au plus vite.</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button size="lg" className="flex-1" onClick={() => (actions.confirm(app.id), toast.success("C'est confirmé, des deux côtés", { description: `${venue.name} est prévenu·e.` }), go(`/coach/mission/${slot.id}`))}>
+                      <Check /> Je confirme
+                    </Button>
+                    <Button size="lg" variant="outline" onClick={() => (actions.decline(app.id), toast("Mission déclinée", { description: "La salle peut retenir un autre coach." }))}>
+                      Décliner
+                    </Button>
+                  </div>
+                </motion.div>
+              ) : app?.status === "declined" ? (
+                <motion.div key="declined" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-3xl bg-muted p-5 text-sm text-muted-foreground">
+                  Vous avez décliné cette mission.
+                </motion.div>
+              ) : app ? (
                 <motion.div key="applied" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="rounded-3xl bg-warning-soft p-5">
                   <p className="font-heading text-lg font-semibold">En attente de la salle</p>
                   <p className="mt-1 text-sm text-ink-soft">La salle compare les profils et vous répond vite. Vous êtes prévenu·e dès qu'elle choisit.</p>
@@ -365,12 +388,38 @@ function SlotPage({ id }: { id: string }) {
 function Planning() {
   const state = useStore();
   const missions = state.slots.filter((s) => s.coachId === ME.id && s.status === "filled" && s.date >= today()).sort((a, b) => (a.date + a.start).localeCompare(b.date + b.start));
-  const apps = state.applications.filter((a) => a.coachId === ME.id && a.status !== "selected").reverse();
+  const apps = state.applications.filter((a) => a.coachId === ME.id && a.status !== "selected" && a.status !== "offered").reverse();
+  const offers = state.applications.filter((a) => a.coachId === ME.id && a.status === "offered");
 
   return (
     <>
       <PageTitle>Planning</PageTitle>
-      <Section title="Missions à venir" className="mt-0">
+      {offers.length > 0 && (
+        <Section title="À confirmer" className="mt-0">
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {offers.map((a, i) => {
+              const s = slotById(state, a.slotId)!;
+              return (
+                <motion.li key={a.id} {...stagger(i)}>
+                  <Tap href={`#/coach/creneau/${s.id}`} className="flex h-full items-center gap-3 rounded-3xl bg-card p-3 shadow-lift ring-2 ring-primary">
+                    <ClassTile id={s.classId} />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold">
+                        {dayLabel(s.date)} · {s.start}
+                      </p>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {venueById(s.venueId).name} vous a retenu·e
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-primary px-3 py-1.5 text-[13px] font-semibold text-primary-foreground">Confirmer</span>
+                  </Tap>
+                </motion.li>
+              );
+            })}
+          </ul>
+        </Section>
+      )}
+      <Section title="Missions à venir" className={offers.length ? undefined : "mt-0"}>
         {missions.length ? (
           <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {missions.map((s, i) => {
@@ -448,7 +497,6 @@ function Mission({ id }: { id: string }) {
   const slot = slotById(state, id);
   if (!slot) return <Empty>Mission introuvable.</Empty>;
   const v = venueById(slot.venueId);
-  const steps = ["Publié", "Candidature", "Retenu·e", "Séance"];
   return (
     <>
       <BackLink href="#/coach/planning">Planning</BackLink>
@@ -456,28 +504,9 @@ function Mission({ id }: { id: string }) {
         <SlotHeader slot={slot} status={<Status status={slot.status} />} />
       </div>
 
-      <ol className="mt-6 grid grid-cols-4">
-        {steps.map((s, i) => (
-          <li key={s} className="relative flex flex-col items-center gap-1.5 text-center text-xs font-medium text-muted-foreground">
-            {i > 0 && (
-              <motion.span
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: 1 }}
-                transition={{ delay: i * 0.12 }}
-                className={cn("absolute top-1.5 right-1/2 h-1 w-full origin-left", i < 3 ? "bg-success" : "bg-border")}
-                aria-hidden
-              />
-            )}
-            <motion.span
-              initial={{ scale: 0.6 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: i * 0.12 }}
-              className={cn("relative z-10 size-4 rounded-full", i < 3 ? "bg-success" : "border-[3px] border-primary bg-card")}
-            />
-            {s}
-          </li>
-        ))}
-      </ol>
+      <div className="mt-6 rounded-3xl bg-card px-3 py-4 ring-1 ring-border/70">
+        <Steps steps={SLOT_STEPS.slice(1)} current={slotStep(state, slot) - 1} />
+      </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="overflow-hidden rounded-3xl ring-1 ring-border/70">
@@ -503,44 +532,38 @@ function Mission({ id }: { id: string }) {
 
 function Profile() {
   const state = useStore();
-  const mine = state.slots.filter((s) => s.coachId === ME.id);
-  const month = today().slice(0, 7);
-  const thisMonth = mine.filter((s) => s.date.startsWith(month));
-  const earned = thisMonth.filter((s) => s.status === "done").reduce((t, s) => t + s.price, 0);
-  const planned = thisMonth.filter((s) => s.status === "filled").reduce((t, s) => t + s.price, 0);
-  const [showIncome, setShowIncome] = useState(false);
+  const me = live(state, ME);
+  const reach = [...new Set(state.slots.map((s) => s.venueId))].map(venueById).filter((v) => distanceKm(ME, v) <= me.radiusKm);
 
   return (
     <>
       <CoachProfile coachId={ME.id} overrides={state.certs} />
-      <Section title="Revenus" action={<Badge variant="outline">Démo</Badge>} className="max-w-xl">
-        <button type="button" onClick={() => setShowIncome(!showIncome)} aria-expanded={showIncome} className="flex w-full items-center gap-3 rounded-3xl bg-card p-4 text-left ring-1 ring-border/70">
-          <span className="flex size-10 items-center justify-center rounded-[12px] bg-muted text-ink-soft">
-            <Wallet className="size-5" aria-hidden />
-          </span>
-          <span className="flex-1">
-            <span className="block font-semibold">Ce mois-ci</span>
-            <span className="text-sm text-muted-foreground">{thisMonth.length} séances</span>
-          </span>
-          <span className="font-heading text-xl font-extrabold tabular-nums">{earned + planned} €</span>
-          <ChevronDown className={cn("size-5 text-muted-foreground transition-transform", showIncome && "rotate-180")} aria-hidden />
-        </button>
-        <AnimatePresence initial={false}>
-          {showIncome && (
-            <motion.ul initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-              {thisMonth.map((s) => (
-                <li key={s.id} className="flex items-center gap-3 border-b border-border/70 px-2 py-3 text-sm last:border-0">
-                  <ClassTile id={s.classId} size="sm" />
-                  <span className="min-w-0 flex-1 truncate">
-                    {classById(s.classId).label} · {venueById(s.venueId).name} · {dayLabel(s.date)}
-                  </span>
-                  <span className={cn("font-semibold tabular-nums", s.status === "filled" && "text-muted-foreground")}>{s.price} €</span>
-                </li>
-              ))}
-            </motion.ul>
-          )}
-        </AnimatePresence>
+      <Section title="Zone d'intervention" className="max-w-3xl">
+        <div className="overflow-hidden rounded-3xl ring-1 ring-border/70">
+          <MapView
+            className="h-64"
+            center={ME}
+            radiusKm={me.radiusKm}
+            zoomKm={Math.max(me.radiusKm, 4)}
+            markers={[
+              { id: "me", kind: "coach", lat: ME.lat, lng: ME.lng, label: ME.id, state: "active" },
+              ...reach.map((v) => ({ id: v.id, kind: "venue" as const, lat: v.lat, lng: v.lng })),
+            ]}
+          />
+          <div className="bg-card px-4 py-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Route className="size-4 text-primary" aria-hidden />
+              <span className="flex-1">Je me déplace jusqu'à</span>
+              <span className="font-heading font-extrabold tabular-nums">{me.radiusKm} km</span>
+            </div>
+            <Slider className="mt-3" value={[me.radiusKm]} min={2} max={40} step={1} onValueChange={([v]) => actions.setCoachRadius(ME.id, v)} aria-label="Distance maximale de déplacement" />
+            <p className="mt-2 text-xs text-muted-foreground">
+              {reach.length} salle{reach.length > 1 ? "s" : ""} dans votre zone. Vous n'êtes prévenu·e que des créneaux à cette distance de chez vous.
+            </p>
+          </div>
+        </div>
       </Section>
+      <CoachTax coachId={ME.id} />
     </>
   );
 }

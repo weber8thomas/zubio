@@ -44,7 +44,6 @@ export type Slot = {
   start: string; // HH:MM
   duration: number; // minutes
   price: number; // euros
-  radiusKm: number;
   capacity: number;
   level: Level;
   audience: string;
@@ -60,8 +59,11 @@ export type Slot = {
   coachId?: string;
   publishedAt: number;
   filledAt?: number;
+  /** Problème signalé par la salle après la séance. */
+  issue?: string;
 };
 
-export type ApplicationStatus = "pending" | "selected" | "rejected" | "withdrawn";
+/** pending → offered (retenu par la salle) → selected (confirmé par le coach) ; ou declined / rejected / withdrawn. */
+export type ApplicationStatus = "pending" | "offered" | "selected" | "declined" | "rejected" | "withdrawn";
 export type Application = { id: string; slotId: string; coachId: string; message: string; status: ApplicationStatus; at: number };
 export type Invite = { slotId: string; coachId: string };

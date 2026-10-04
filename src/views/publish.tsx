@@ -4,7 +4,7 @@ import { type ReactNode, useState } from "react";
 import { fr } from "react-day-picker/locale";
 import { toast } from "sonner";
 import { ClassTile } from "@/components/kit";
-import { MapView, RadiusControl } from "@/components/map";
+import { MapView } from "@/components/map";
 import { ClassPicker, DurationField, Label, Segmented, SelectField, Stepper, TimeField, ToggleRow } from "@/components/pickers";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -35,7 +35,6 @@ export function PublishWizard() {
   const [duration, setDuration] = useState(classById(venue.classes[0]).duration);
   const [capacity, setCapacity] = useState(20);
   const [price, setPrice] = useState(classById(venue.classes[0]).avgPrice);
-  const [radiusKm, setRadius] = useState(10);
   const [instant, setInstant] = useState(false);
   const [level, setLevel] = useState<Level>("tous");
   const [kind, setKind] = useState<Kind>("remplacement");
@@ -46,7 +45,7 @@ export function PublishWizard() {
   const [language, setLanguage] = useState(LANGUAGES[0]);
   const [notes, setNotes] = useState("");
 
-  const input = { classId, date, start, duration, price, radiusKm, capacity, level, audience, language, kind, urgent, equipment, weeks, notes, instant };
+  const input = { classId, date, start, duration, price, capacity, level, audience, language, kind, urgent, equipment, weeks, notes, instant };
   const matches = matchesFor(state, { ...input, id: "draft", venueId: venue.id, status: "open", publishedAt: 0 } as Slot);
   const c = classById(classId);
   const name = STEPS[step];
@@ -79,20 +78,21 @@ export function PublishWizard() {
     },
     prix: { title: "Votre tarif pour la séance", body: <PriceStep price={price} setPrice={setPrice} avg={c.avgPrice} duration={duration} count={matches.length} /> },
     zone: {
-      title: "Jusqu'où chercher ?",
+      title: "Qui sera prévenu ?",
       body: (
         <div className="overflow-hidden rounded-3xl ring-1 ring-border/70">
           <MapView
             className="h-72"
             center={venue}
-            radiusKm={radiusKm}
-            zoomKm={Math.max(radiusKm, 4)}
+            zoomKm={9}
             markers={[
               { id: "venue", kind: "venue", lat: venue.lat, lng: venue.lng },
               ...COACHES.map((co) => ({ id: co.id, kind: "coach" as const, lat: co.lat, lng: co.lng, label: co.id, state: matches.some((m) => m.coach.id === co.id) ? ("active" as const) : ("idle" as const) })),
             ]}
           />
-          <RadiusControl value={radiusKm} onChange={setRadius} count={matches.length} />
+          <p className="bg-card px-4 py-3 text-sm text-muted-foreground">
+            <b className="text-foreground">{matches.length} coach{matches.length > 1 ? "s" : ""} compatible{matches.length > 1 ? "s" : ""}</b> : votre salle est dans leur zone d'intervention, ils ont la certification et sont disponibles à ce tarif. Chaque coach règle lui-même la distance qu'il accepte de parcourir.
+          </p>
         </div>
       ),
     },
@@ -176,7 +176,7 @@ export function PublishWizard() {
               [2, "Durée", fmtDuration(duration)],
               [3, "Participants", `${capacity}`],
               [4, "Tarif", `${price} €`],
-              [5, "Zone", `${radiusKm} km · ${matches.length} coachs compatibles`],
+              [5, "Prévenus", `${matches.length} coachs compatibles`],
               [6, "Confirmation", instant ? "Réservation instantanée" : "Je choisis parmi les candidats"],
               [7, "Détails", [LEVELS[level], KINDS[kind], urgent && "Urgent", weeks > 1 && `${weeks} semaines`].filter(Boolean).join(" · ")],
             ] as const

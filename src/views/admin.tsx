@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Avatar, BackLink, ClassTile, Empty, PageTitle, Section, Stat, Status, Tap, stagger } from "@/components/kit";
+import { CertificateDoc, DocPreview } from "@/components/docs";
 import { Chip } from "@/components/pickers";
 import { CoachProfile, SlotFacts, SlotHeader } from "@/components/profiles";
 import { Shell } from "@/components/shell";
@@ -13,12 +14,13 @@ import { dayLabel } from "@/lib/date";
 import { certStatus } from "@/lib/matching";
 import { go } from "@/lib/router";
 import { actions, slotById, useStore, venueById } from "@/lib/store";
+import { AdminBilling, InvoicePage } from "./billing";
 
 export function AdminSpace({ route }: { route: string[] }) {
   const [page, a, b] = route;
   return (
     <Shell space="admin" tabs={[]} page={route.join("/")}>
-      {page === "diplome" && a && b ? <Credential coachId={a} certId={b} /> : page === "coach" && a ? <CoachPage id={a} /> : page === "creneau" && a ? <SlotPage id={a} /> : <Overview />}
+      {page === "diplome" && a && b ? <Credential coachId={a} certId={b} /> : page === "coach" && a ? <CoachPage id={a} /> : page === "creneau" && a ? <SlotPage id={a} /> : page === "facture" && a ? <InvoicePage id={a} back="#/admin" backLabel="Vue d'ensemble" canDecide={false} /> : <Overview />}
     </Shell>
   );
 }
@@ -98,6 +100,7 @@ function Overview() {
           </ul>
         </Section>
       </div>
+      <AdminBilling />
     </>
   );
 }
@@ -134,30 +137,14 @@ function Credential({ coachId, certId }: { coachId: string; certId: string }) {
         </div>
       </div>
 
-      <motion.figure initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mt-6 rounded-3xl bg-card p-6 shadow-lift ring-1 ring-border/70">
-        <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-          <FileText className="size-4" aria-hidden /> justificatif.pdf · document fictif
-        </div>
-        <p className="mt-6 text-center font-heading text-lg font-extrabold uppercase">Attestation de certification</p>
-        <dl className="mt-6 grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <dt className="text-muted-foreground">Titulaire</dt>
-            <dd className="font-semibold">{coach.name}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Certification</dt>
-            <dd className="font-semibold">{certLabel(certId)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Numéro</dt>
-            <dd className="font-semibold tracking-wide tabular-nums">ZB-{coach.id.slice(0, 3).toUpperCase()}-{certId.length * 731}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Délivrée</dt>
-            <dd className="font-semibold">il y a moins d'un mois</dd>
-          </div>
-        </dl>
-      </motion.figure>
+      <motion.div initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="mt-6">
+        <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+          <FileText className="size-4" aria-hidden /> Justificatif déposé · document fictif
+        </p>
+        <DocPreview title={`${certLabel(certId)} · ${coach.name}`}>
+          <CertificateDoc coachId={coach.id} certId={certId} />
+        </DocPreview>
+      </motion.div>
 
       {status === "pending" ? (
         <div className="mt-6 space-y-4">

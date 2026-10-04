@@ -24,7 +24,7 @@ export function A4Page({ children, width }: { children: ReactNode; width?: numbe
   const scale = (width ?? w) / A4.w;
   return (
     <div ref={ref} style={{ width: width ?? "100%", height: A4.h * scale }} className="relative overflow-hidden bg-white">
-      <div style={{ width: A4.w, height: A4.h, transform: `scale(${scale})`, transformOrigin: "top left" }} className="absolute top-0 left-0 bg-white text-[#2a211c]">
+      <div style={{ width: A4.w, height: A4.h, transform: `scale(${scale})`, transformOrigin: "top left" }} className="absolute top-0 left-0 bg-white text-left text-[#2a211c]">
         {children}
       </div>
     </div>
@@ -156,5 +156,21 @@ function Watermark() {
     <span className={cn("pointer-events-none absolute inset-0 flex items-center justify-center")} aria-hidden>
       <span className="-rotate-[30deg] font-heading text-[150px] font-extrabold tracking-widest text-[#d63b27]/10">SPÉCIMEN</span>
     </span>
+  );
+}
+
+/** Aperçu A4 en pleine largeur ; un clic ouvre la visionneuse avec zoom. */
+export function DocPreview({ title, children }: { title: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className="group relative block w-full overflow-hidden rounded-2xl shadow-lift ring-1 ring-border/70 transition hover:ring-primary" aria-label={`Agrandir ${title}`}>
+        <A4Page>{children}</A4Page>
+        <span className="absolute right-3 bottom-3 rounded-full bg-foreground/85 px-3 py-1.5 text-xs font-semibold text-background opacity-90 transition group-hover:opacity-100">Agrandir</span>
+      </button>
+      <DocViewer open={open} onOpenChange={setOpen} title={title}>
+        {children}
+      </DocViewer>
+    </>
   );
 }

@@ -83,7 +83,9 @@ const STATUS: Record<AnyStatus, { label: string; tone: "open" | "done" | "off" |
   filled: { label: "Confirmé", tone: "done" },
   done: { label: "Terminé", tone: "off" },
   pending: { label: "Envoyée", tone: "wait" },
-  selected: { label: "Retenu", tone: "done" },
+  offered: { label: "À confirmer", tone: "wait" },
+  selected: { label: "Confirmé", tone: "done" },
+  declined: { label: "Décliné", tone: "off" },
   rejected: { label: "Non retenu", tone: "off" },
   withdrawn: { label: "Retirée", tone: "off" },
 };
@@ -229,3 +231,30 @@ export const PageTitle = ({ children, sub }: { children: ReactNode; sub?: ReactN
     {sub && <p className="mt-1 text-muted-foreground">{sub}</p>}
   </header>
 );
+
+/** Déroulé « Ligne Z » : étapes passées ●, étape courante ○, à venir grisées. */
+export function Steps({ steps, current }: { steps: string[]; current: number }) {
+  return (
+    <ol className="grid" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
+      {steps.map((s, i) => (
+        <li key={s} className="relative flex flex-col items-center gap-1.5 text-center text-[11px] leading-tight font-medium text-muted-foreground sm:text-xs">
+          {i > 0 && (
+            <motion.span
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ delay: i * 0.08 }}
+              className={cn("absolute top-1.5 right-1/2 h-1 w-full origin-left", i <= current ? "bg-success" : "bg-border")}
+            />
+          )}
+          <motion.span
+            initial={{ scale: 0.6 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: i * 0.08 }}
+            className={cn("relative z-10 size-4 rounded-full", i < current ? "bg-success" : i === current ? "border-[3px] border-primary bg-card" : "border-[3px] border-border-strong bg-card")}
+          />
+          <span className={cn("max-w-full px-0.5 break-words hyphens-auto", i <= current && "text-foreground")}>{s}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}

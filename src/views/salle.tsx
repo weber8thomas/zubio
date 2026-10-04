@@ -1,11 +1,13 @@
-import { CalendarCheck, Inbox, LayoutGrid, MapPin, Plus, PlusCircle, Search, Star, Users, UserRoundCheck, Zap } from "lucide-react";
+import { CalendarCheck, CheckCheck, ChevronRight, Inbox, LayoutGrid, MapPin, Plus, PlusCircle, ReceiptText, Search, Star, TriangleAlert, Users, UserRoundCheck, Zap } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Avatar, AvatarStack, BackLink, ClassTile, Empty, PageTitle, Section, SlotCard, Stat, Status, Tap, stagger } from "@/components/kit";
-import { MapView, RadiusControl } from "@/components/map";
+import { Avatar, AvatarStack, BackLink, ClassTile, Empty, PageTitle, Section, SlotCard, Stat, Status, Steps, Tap, stagger } from "@/components/kit";
+import { MapView } from "@/components/map";
+import { Chip } from "@/components/pickers";
 import { CoachProfile, Confirmed, SlotFacts, SlotHeader, teachable } from "@/components/profiles";
 import { Shell } from "@/components/shell";
+import { SalleInvoices, InvoicePage } from "./billing";
 import { PublishWizard } from "./publish";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +18,7 @@ import { dayLabel, endOf, today } from "@/lib/date";
 import { distanceKm, km } from "@/lib/geo";
 import { fit } from "@/lib/matching";
 import { go } from "@/lib/router";
-import { actions, matchesFor, myVenue, slotById, type State, useStore } from "@/lib/store";
+import { actions, live, matchesFor, slotStep, SLOT_STEPS, myVenue, slotById, type State, useStore } from "@/lib/store";
 
 export function SalleSpace({ route }: { route: string[] }) {
   const [page, id] = route;
@@ -24,10 +26,11 @@ export function SalleSpace({ route }: { route: string[] }) {
     { href: "#/salle", label: "Accueil", icon: LayoutGrid, active: !page || page === "creneau" },
     { href: "#/salle/publier", label: "Publier", icon: PlusCircle, active: page === "publier" },
     { href: "#/salle/coachs", label: "Coachs", icon: Users, active: page === "coachs" || page === "coach" },
+    { href: "#/salle/factures", label: "Factures", icon: ReceiptText, active: page === "factures" || page === "facture" },
   ];
   return (
     <Shell space="salle" tabs={tabs} page={route.join("/")} immersive={page === "publier"}>
-      {page === "publier" ? <PublishWizard /> : page === "coachs" ? <Catalog /> : page === "coach" && id ? <CoachPage id={id} /> : page === "creneau" && id ? <SlotPage id={id} /> : <Home />}
+      {page === "publier" ? <PublishWizard /> : page === "coachs" ? <Catalog /> : page === "coach" && id ? <CoachPage id={id} /> : page === "creneau" && id ? <SlotPage id={id} /> : page === "factures" ? <SalleInvoices /> : page === "facture" && id ? <InvoicePage id={id} back="#/salle/factures" backLabel="Factures" canDecide /> : <Home />}
     </Shell>
   );
 }
@@ -122,45 +125,102 @@ function Home() {
   );
 }
 
+const ISSUES = ["Coach absent", "Retard important", "Séance écourtée", "Autre problème"];
 function SlotPage({ id }: { id: string }) {
   const state = useStore();
+  const [issue, setIssue] = useState<string | null>(null);
+  const [reporting, setReporting] = useState(false);
   const slot = slotById(state, id);
   const venue = myVenue();
   if (!slot) return <Empty>Créneau introuvable.</Empty>;
   const apps = state.applications.filter((a) => a.slotId === id && a.status !== "withdrawn");
   const pending = apps.filter((a) => a.status === "pending").length;
+  const offered = apps.find((a) => a.status === "offered");
   const matches = matchesFor(state, slot);
   const open = slot.status === "open";
 
   function simulate() {
     const n = actions.simulateApplications(slot!.id);
-    toast(n ? `${n} nouvelle${n > 1 ? "s" : ""} candidature${n > 1 ? "s" : ""}` : "Aucun autre coach compatible dans ce rayon");
+    toast(n ? `${n} nouvelle${n > 1 ? "s" : ""} candidature${n > 1 ? "s" : ""}` : "Aucun autre coach compatible");
   }
 
   return (
     <>
       <BackLink href="#/salle">Tableau de bord</BackLink>
       <div className="mt-2">
-        <SlotHeader slot={slot} status={open && pending ? <Status status="candidates" label={candidatures(pending)} /> : <Status status={slot.status} />} />
+        <SlotHeader slot={slot} status={open && offered ? <Status status="offered" /> : open && pending ? <Status status="candidates" label={candidatures(pending)} /> : <Status status={slot.status} />} />
       </div>
 
-      <AnimatePresence>
-        {slot.coachId && (
-          <div className="mt-6">
-            <Confirmed coachId={slot.coachId} title="C'est confirmé, des deux côtés" subtitle={`${coachById(slot.coachId).rating.toFixed(1)} ★ · ${coachById(slot.coachId).missions} missions`} />
-          </div>
-        )}
-      </AnimatePresence>
+      <div className="mt-6 rounded-3xl bg-card px-3 py-4 ring-1 ring-border/70">
+        <Steps steps={SLOT_STEPS} current={slotStep(state, slot)} />
+      </div>
+
+      {slot.coachId && (
+        <div className="mt-4">
+          <Confirmed coachId={slot.coachId} title={slot.status === "done" ? "Séance réalisée" : "C'est confirmé, des deux côtés"} subtitle={`${coachById(slot.coachId).rating.toFixed(1)} ★ · ${coachById(slot.coachId).missions} missions`} />
+        </div>
+      )}
+
+      {slot.status === "filled" && (
+        <div className="mt-4 rounded-3xl bg-card p-4 ring-1 ring-border/70 sm:p-5">
+          <p className="font-heading text-[17px] font-semibold">Après la séance</p>
+          <p className="mt-1 text-sm text-muted-foreground">Validez que le cours a bien eu lieu : les factures sont alors émises automatiquement.</p>
+          {reporting ? (
+            <div className="mt-3">
+              <div className="flex flex-wrap gap-1.5">
+                {ISSUES.map((r) => (
+                  <Chip key={r} small active={issue === r} onClick={() => setIssue(r)}>
+                    {r}
+                  </Chip>
+                ))}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button disabled={!issue} onClick={() => (actions.complete(slot.id, issue!), toast("Problème signalé", { description: "La facture du coach est suspendue, l'équipe Zubio vous recontacte." }))}>
+                  Envoyer le signalement
+                </Button>
+                <Button variant="ghost" onClick={() => setReporting(false)}>
+                  Annuler
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button onClick={() => (actions.complete(slot.id), toast.success("Séance validée", { description: "Factures émises et transmises via la plateforme agréée." }))}>
+                <CheckCheck /> Valider la séance
+              </Button>
+              <Button variant="outline" onClick={() => setReporting(true)}>
+                <TriangleAlert /> Signaler un problème
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      {slot.status === "done" && (
+        <a href="#/salle/factures" className="mt-4 flex items-center gap-3 rounded-3xl bg-card p-4 ring-1 ring-border/70 transition hover:shadow-lift">
+          <ReceiptText className="size-5 text-primary" aria-hidden />
+          <span className="flex-1 text-sm">
+            {slot.issue ? (
+              <>
+                <b>Problème signalé :</b> {slot.issue.toLowerCase()}. Facture du coach suspendue.
+              </>
+            ) : (
+              <>
+                <b>Séance validée.</b> Factures émises : voir l'onglet Factures.
+              </>
+            )}
+          </span>
+          <ChevronRight className="size-4 text-muted-foreground" aria-hidden />
+        </a>
+      )}
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="lg:sticky lg:top-36 lg:self-start">
-          <h2 className="mb-3 font-heading text-[17px] font-semibold">Zone de recherche</h2>
+          <h2 className="mb-3 font-heading text-[17px] font-semibold">Coachs prévenus</h2>
           <div className="overflow-hidden rounded-3xl ring-1 ring-border/70">
             <MapView
               className="h-72 sm:h-80"
               center={venue}
-              radiusKm={open ? slot.radiusKm : undefined}
-              zoomKm={Math.max(slot.radiusKm, 4)}
+              zoomKm={9}
               markers={[
                 { id: "venue", kind: "venue", lat: venue.lat, lng: venue.lng },
                 ...COACHES.map((c) => ({
@@ -174,7 +234,9 @@ function SlotPage({ id }: { id: string }) {
                 })),
               ]}
             />
-            {open && <RadiusControl value={slot.radiusKm} onChange={(km) => actions.setRadius(slot.id, km)} count={matches.length} />}
+            <p className="bg-card px-4 py-3 text-sm text-muted-foreground">
+              <b className="text-foreground">{matches.length} coachs compatibles</b> ont votre salle dans leur zone d'intervention : ils ont été prévenus.
+            </p>
           </div>
         </div>
 
@@ -186,11 +248,20 @@ function SlotPage({ id }: { id: string }) {
               Réservation instantanée : le premier coach compatible qui réserve est confirmé automatiquement.
             </p>
           )}
+          {offered && open && (
+            <div className="mb-3 rounded-3xl bg-warning-soft p-4 text-sm">
+              <p className="font-semibold text-warning-ink">En attente de la confirmation de {coachById(offered.coachId).name}</p>
+              <p className="mt-1 text-ink-soft">Le coach a 12 h pour confirmer sa venue. Sans réponse, vous pourrez retenir un autre candidat.</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => (actions.confirm(offered.id), toast.success(`${coachById(offered.coachId).name} a confirmé`))}>
+                Démo : simuler sa confirmation
+              </Button>
+            </div>
+          )}
           <ul className="flex flex-col gap-2">
             <AnimatePresence initial={false}>
               {apps.map((a, i) => {
                 const c = coachById(a.coachId);
-                const f = fit(c, slot, venue, state.certs);
+                const f = fit(live(state, c), slot, venue, state.certs);
                 return (
                   <motion.li key={a.id} layout {...stagger(i)} className="rounded-3xl bg-card p-3 shadow-soft ring-1 ring-border/70">
                     <div className="flex items-center gap-3">
@@ -209,15 +280,8 @@ function SlotPage({ id }: { id: string }) {
                           {km(f.km)} · {c.missions} missions
                         </p>
                       </div>
-                      {a.status === "pending" && open ? (
-                        <Button
-                          onClick={() => {
-                            actions.select(a.id);
-                            toast.success(`${c.name} est confirmé·e`, { description: "Les autres candidats sont prévenus." });
-                          }}
-                        >
-                          Choisir
-                        </Button>
+                      {a.status === "pending" && open && !offered ? (
+                        <Button onClick={() => (actions.offer(a.id), toast(`${c.name} est retenu·e`, { description: "Le coach doit confirmer sa venue." }))}>Retenir</Button>
                       ) : (
                         <Status status={a.status} />
                       )}
@@ -229,7 +293,7 @@ function SlotPage({ id }: { id: string }) {
             </AnimatePresence>
           </ul>
           {!apps.length && <Empty>Pas encore de candidature. {matches.length} coach{matches.length > 1 ? "s" : ""} compatible{matches.length > 1 ? "s ont" : " a"} été prévenu{matches.length > 1 ? "s" : ""}.</Empty>}
-          {open && (
+          {open && !offered && (
             <div className="mt-3 flex items-center gap-3 rounded-3xl bg-muted/60 p-3 pl-4">
               <p className="flex-1 text-sm text-muted-foreground">Démo : faire postuler des coachs compatibles.</p>
               <Button size="sm" variant="outline" onClick={simulate}>

@@ -148,3 +148,15 @@
     mask-image: none;
   }
 }
+
+/* Impression d'une facture : seule la page compte. */
+@media print {
+  header,
+  nav,
+  [data-sonner-toaster] {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}

@@ -13,7 +13,7 @@ export const certStatus = (coach: Coach, cert: string, overrides: CertOverrides)
 
 /**
  * Un coach convient à un créneau s'il a une certification exigée et vérifiée,
- * s'il est dans le rayon (le sien et celui de la salle), disponible sur toute
+ * si la salle est dans sa zone d'intervention, s'il est disponible sur toute
  * la séance, et si le tarif atteint son minimum horaire.
  */
 export function fit(coach: Coach, slot: Slot, venue: Venue, overrides: CertOverrides = {}): Fit {
@@ -21,7 +21,7 @@ export function fit(coach: Coach, slot: Slot, venue: Venue, overrides: CertOverr
   const issues: Issue[] = [];
   const requires = classById(slot.classId).requires;
   if (!requires.some((c) => certStatus(coach, c, overrides) === "verified")) issues.push("Certification");
-  if (d > Math.min(coach.radiusKm, slot.radiusKm)) issues.push("Distance");
+  if (d > coach.radiusKm) issues.push("Distance");
   const day = weekday(slot.date);
   const [s, e] = [toMin(slot.start), toMin(endOf(slot.start, slot.duration))];
   if (!coach.availability.some((a) => a.days.includes(day) && toMin(a.from) <= s && toMin(a.to) >= e)) issues.push("Disponibilité");

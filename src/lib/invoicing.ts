@@ -50,9 +50,10 @@ function totals(lines: Line[]) {
 }
 
 /** Statut sur la plateforme agréée : décision de la salle, sinon cycle simulé selon l'ancienneté. */
-function statusOf(s: State, id: string, date: string): InvoiceStatus {
+function statusOf(s: State, id: string, date: string, issue?: string): InvoiceStatus {
   const override = s.invoices?.[id];
   if (override) return override;
+  if (issue) return "refusee";
   const age = (parse(today()).getTime() - parse(date).getTime()) / 86_400_000;
   return age >= 10 ? "encaissee" : age >= 1 ? "acceptee" : "recue";
 }
@@ -90,7 +91,7 @@ export function invoicesFrom(s: State): Invoice[] {
             "Catégorie d'opération : prestation de services.",
             LATE,
           ],
-          status: statusOf(s, pid, slot.date),
+          status: statusOf(s, pid, slot.date, slot.issue),
         },
         {
           ...base,
@@ -101,7 +102,7 @@ export function invoicesFrom(s: State): Invoice[] {
           lines: fee,
           ...totals(fee),
           mentions: ["Catégorie d'opération : prestation de services.", LATE],
-          status: statusOf(s, cid, slot.date),
+          status: statusOf(s, cid, slot.date, slot.issue),
         },
       ];
     })

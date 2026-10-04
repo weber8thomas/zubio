@@ -1,11 +1,14 @@
-import { BadgeCheck, Clock, Gauge, Languages, MapPin, Package, Repeat, Star, Users, X, Zap } from "lucide-react";
+import { BadgeCheck, Briefcase, CalendarDays, CircleCheckBig, Clock, Euro, Gauge, Languages, MapPin, Navigation, Package, Repeat, Timer, Users, Zap, type LucideIcon } from "lucide-react";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
-import { Avatar, ClassChip, ClassTile, Section } from "@/components/kit";
-import { CLASSES, certLabel, classById, KINDS, LEVELS } from "@/data/classes";
+import { Avatar, ClassTile, Section, stagger } from "@/components/kit";
+import { Stars, Reviews } from "@/components/reviews";
+import { Certifications, Skills } from "@/components/skills";
+import { CLASSES, classById, KINDS, LEVELS } from "@/data/classes";
 import { coachById } from "@/data/coaches";
+import { reliability } from "@/data/reviews";
 import type { Point, Slot } from "@/data/types";
-import { dayLabel, duration, endOf } from "@/lib/date";
+import { dayLabel, duration, endOf, toMin } from "@/lib/date";
 import { distanceKm, km } from "@/lib/geo";
 import { type CertOverrides, certStatus } from "@/lib/matching";
 import { venueById } from "@/lib/store";
@@ -29,88 +32,186 @@ export const teachable = (coachId: string, overrides: CertOverrides) => {
 const hour = (t: string) => t.replace(/^0/, "").replace(":00", "h").replace(":", "h");
 
 const WEEK = ["L", "M", "M", "J", "V", "S", "D"];
+const DAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** Fiche coach complète (photo, certifications, cours, disponibilités). */
-export function CoachProfile({ coachId, from, overrides, actions }: { coachId: string; from?: Point; overrides: CertOverrides; actions?: ReactNode }) {
+/** [1,2,3,4,5] → « Du lundi au vendredi », [6,7] → « Samedi et dimanche ». */
+function daysLabel(days: number[]) {
+  const d = [...days].sort((a, b) => a - b);
+  const run = d.every((x, i) => !i || x === d[i - 1] + 1);
+  if (d.length === 1) return cap(DAYS[d[0] - 1]);
+  if (run && d.length > 2) return `Du ${DAYS[d[0] - 1]} au ${DAYS[d.at(-1)! - 1]}`;
+  return cap(`${d.slice(0, -1).map((x) => DAYS[x - 1]).join(", ")} et ${DAYS[d.at(-1)! - 1]}`);
+}
+
+// Frise des disponibilités : de 6 h à 22 h.
+const DAY_START = 6 * 60;
+const DAY_END = 22 * 60;
+const pos = (hm: string) => Math.min(100, Math.max(0, ((toMin(hm) - DAY_START) / (DAY_END - DAY_START)) * 100));
+
+/** Semaine type : une colonne par jour, les plages dessinées à l'échelle. */
+function Week({ coachId }: { coachId: string }) {
   const c = coachById(coachId);
-  const classes = teachable(coachId, overrides);
   return (
-    <>
-      <div className="flex flex-col items-center text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
-        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
-          <Avatar id={c.id} size="xl" className="ring-4" />
-        </motion.div>
-        <div className="mt-4 sm:mt-0">
-          <h1 className="font-heading text-[24px] leading-tight font-extrabold sm:text-[30px]">{c.name}</h1>
-          <p className="mt-1 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-muted-foreground sm:justify-start">
-            <span className="flex items-center gap-1">
-              <Star className="size-4 fill-warning text-warning" aria-hidden />
-              <b className="text-foreground">{c.rating.toFixed(1)}</b> ({c.reviews} avis)
-            </span>
-            <span>{c.missions} missions</span>
-            <span className="flex items-center gap-1">
-              <MapPin className="size-4" aria-hidden />
-              {c.town}
-              {from && ` · ${km(distanceKm(from, c))}`}
-            </span>
-          </p>
+    <div className="rounded-3xl bg-card p-4 ring-1 ring-border/70 sm:p-5">
+      <div className="flex gap-2">
+        <div className="w-8 shrink-0" aria-hidden />
+        <div className="grid flex-1 grid-cols-7 gap-1.5">
+          {WEEK.map((d, i) => (
+            <p key={i} className="text-center font-heading text-sm font-extrabold" aria-hidden>
+              {d}
+            </p>
+          ))}
         </div>
       </div>
-      <div className={cn("flex flex-col", actions && "lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8")}>
-        {actions && <aside className="order-first mt-5 lg:sticky lg:top-36 lg:order-none lg:col-start-2 lg:row-start-1 lg:mt-6 lg:self-start">{actions}</aside>}
-        <div className="min-w-0">
-          <p className="mt-6 max-w-prose text-[17px] leading-relaxed text-ink-soft">{c.bio}</p>
+      <div className="mt-2 flex gap-2">
+        <div className="relative h-44 w-8 shrink-0 text-[11px] leading-none text-muted-foreground tabular-nums" aria-hidden>
+          {["6h", "10h", "14h", "18h", "22h"].map((t, i) => (
+            <span key={t} className="absolute right-0 -translate-y-1/2" style={{ top: `${i * 25}%` }}>
+              {t}
+            </span>
+          ))}
+        </div>
+        <ul className="grid flex-1 grid-cols-7 gap-1.5">
+          {DAYS.map((name, i) => {
+            const plages = c.availability.filter((a) => a.days.includes(i + 1)).sort((a, b) => a.from.localeCompare(b.from));
+            return (
+              <li key={name} className="relative h-44 overflow-hidden rounded-xl bg-muted/70">
+                <span className="sr-only">
+                  {cap(name)} : {plages.length ? plages.map((a) => `${hour(a.from)} à ${hour(a.to)}`).join(", ") : "indisponible"}
+                </span>
+                {[25, 50, 75].map((t) => (
+                  <span key={t} className="absolute inset-x-0 border-t border-dashed border-border-strong/60" style={{ top: `${t}%` }} aria-hidden />
+                ))}
+                {plages.map((a, j) => (
+                  <motion.span
+                    key={j}
+                    aria-hidden
+                    initial={{ scaleY: 0 }}
+                    animate={{ scaleY: 1 }}
+                    transition={{ duration: 0.45, delay: 0.1 + i * 0.03, ease: [0.2, 0.8, 0.2, 1] }}
+                    className="absolute inset-x-1 origin-top rounded-lg bg-primary-soft ring-1 ring-primary/40 ring-inset"
+                    style={{ top: `${pos(a.from)}%`, height: `${pos(a.to) - pos(a.from)}%` }}
+                  />
+                ))}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      <ul className="mt-4 flex flex-col gap-1.5 border-t border-border/70 pt-4 text-[15px]">
+        {c.availability.map((a, i) => (
+          <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <span className="font-semibold">{daysLabel(a.days)}</span>
+            <span className="text-ink-soft tabular-nums">
+              {hour(a.from)} – {hour(a.to)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
-          <Section title="Cours qu'elle ou il peut donner">
-            <div className="flex flex-wrap gap-1.5">
-              {classes.length ? classes.map((id) => <ClassChip key={id} id={id} />) : <p className="text-muted-foreground">Aucun pour l'instant : certifications en attente.</p>}
-            </div>
+/** Fiche coach complète : identité, fiabilité, cours par famille, certifications, avis, disponibilités. */
+export function CoachProfile({ coachId, from, overrides, actions }: { coachId: string; from?: Point; overrides: CertOverrides; actions?: ReactNode }) {
+  const c = coachById(coachId);
+  const r = reliability(coachId);
+  const verified = c.certs.filter((x) => certStatus(c, x.id, overrides) === "verified").length;
+  const figures: [LucideIcon, string, string, string][] = [
+    [CircleCheckBig, "Présence", `${r.presence} %`, "missions honorées"],
+    [Timer, "Réponse", `${r.responseMin} min`, "délai moyen"],
+    [Repeat, "Réembauche", `${r.rehire} %`, "des salles reviennent"],
+    [Briefcase, "Missions", String(c.missions), `depuis ${r.since}`],
+  ];
+
+  return (
+    <>
+      <motion.header initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }} className="overflow-hidden rounded-3xl bg-card ring-1 ring-border/70">
+        <div className="flex items-center gap-4 p-4 sm:gap-6 sm:p-6">
+          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
+            <Avatar id={c.id} size="xl" className="size-20 ring-4 ring-background sm:size-28" />
+          </motion.div>
+          <div className="min-w-0 flex-1">
+            <h1 className="font-heading text-[22px] leading-tight font-extrabold text-balance sm:text-[30px]">{c.name}</h1>
+            <p className="mt-1.5 flex items-center gap-1.5 text-[15px] text-ink-soft">
+              <MapPin className="size-4 shrink-0" aria-hidden />
+              <span>
+                {c.town}
+                {from && ` · à ${km(distanceKm(from, c))}`}
+              </span>
+            </p>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[15px]">
+              <Stars value={c.rating} />
+              <b className="tabular-nums">{c.rating.toFixed(1)}</b>
+              <span className="text-muted-foreground">· {c.reviews} avis</span>
+            </p>
+          </div>
+        </div>
+        <ul className="flex flex-wrap gap-x-5 gap-y-2 border-t border-border/70 px-4 py-3 text-sm text-ink-soft sm:px-6">
+          <li className="flex items-center gap-1.5">
+            <Languages className="size-4 shrink-0" aria-hidden /> {c.languages.join(", ")}
+          </li>
+          <li className="flex items-center gap-1.5">
+            <CalendarDays className="size-4 shrink-0" aria-hidden /> Sur Zubio depuis {r.since}
+          </li>
+          {verified > 0 && (
+            <li className="flex items-center gap-1.5 font-medium text-success-ink">
+              <BadgeCheck className="size-4 shrink-0" aria-hidden /> {verified} certification{verified > 1 ? "s" : ""} vérifiée{verified > 1 ? "s" : ""}
+            </li>
+          )}
+        </ul>
+        <dl className="grid grid-cols-2 gap-px border-t border-border/70 bg-border/70 sm:grid-cols-4">
+          {figures.map(([Icon, k, v, hint], i) => (
+            <motion.div key={k} {...stagger(i + 1)} className="bg-card px-4 py-3.5 sm:px-6 sm:py-4">
+              <dt className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
+                <Icon className="size-3.5" aria-hidden />
+                {k}
+              </dt>
+              <dd className="mt-1">
+                <span className="block font-heading text-[22px] leading-none font-extrabold tabular-nums">{v}</span>
+                <span className="mt-1 block text-[13px] leading-snug text-muted-foreground">{hint}</span>
+              </dd>
+            </motion.div>
+          ))}
+        </dl>
+      </motion.header>
+
+      <div className={cn("flex flex-col", actions && "lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8")}>
+        {actions && <aside className="order-first mt-5 lg:sticky lg:top-36 lg:order-none lg:col-start-2 lg:row-start-1 lg:mt-8 lg:self-start">{actions}</aside>}
+        <div className="@container min-w-0">
+          <Section title="À propos">
+            <p className="max-w-prose text-[17px] leading-relaxed text-pretty">{c.bio}</p>
+            <dl className="mt-4 flex flex-wrap gap-2">
+              {(
+                [
+                  [Navigation, "Rayon", `${c.radiusKm} km`],
+                  [Euro, "Tarif", `dès ${c.minHourly} €/h`],
+                ] as const
+              ).map(([Icon, k, v]) => (
+                <div key={k} className="flex h-11 items-center gap-2 rounded-full bg-card px-4 text-sm ring-1 ring-border/70">
+                  <Icon className="size-4 text-muted-foreground" aria-hidden />
+                  <dt className="text-muted-foreground">{k}</dt>
+                  <dd className="font-semibold">{v}</dd>
+                </div>
+              ))}
+            </dl>
           </Section>
 
-          <Section title="Certifications">
-            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {c.certs.map((cert) => {
-                const status = certStatus(c, cert.id, overrides);
-                return (
-                  <li key={cert.id} className="flex items-center gap-3 rounded-2xl bg-card p-3 ring-1 ring-border/70">
-                    <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-[11px]", status === "verified" ? "bg-success-soft text-success-ink" : status === "rejected" ? "bg-primary-soft text-primary-ink" : "bg-warning-soft text-warning-ink")}>
-                      {status === "verified" ? <BadgeCheck className="size-[18px]" /> : status === "rejected" ? <X className="size-[18px]" /> : <Clock className="size-[18px]" />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{certLabel(cert.id)}</span>
-                      <span className="text-xs text-muted-foreground">{status === "verified" ? "Vérifiée" : status === "rejected" ? "Refusée" : "En cours de vérification"}</span>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+          <Section title="Cours qu'elle ou il peut donner">
+            <Skills coachId={coachId} overrides={overrides} />
+          </Section>
+
+          <Section title="Certifications et justificatifs">
+            <Certifications coachId={coachId} overrides={overrides} />
+          </Section>
+
+          <Section title="Avis des salles">
+            <Reviews coachId={coachId} />
           </Section>
 
           <Section title="Disponibilités habituelles">
-            <div className="grid grid-cols-7 gap-1.5 sm:max-w-md">
-              {WEEK.map((d, i) => {
-                const plage = c.availability.filter((a) => a.days.includes(i + 1)).sort((a, b) => a.from.localeCompare(b.from));
-                return (
-                  <div key={i} className={cn("rounded-2xl px-1 py-2 text-center", plage.length ? "bg-primary-soft text-primary-ink" : "bg-muted text-muted-foreground")}>
-                    <p className="font-heading text-sm font-extrabold">{d}</p>
-                    <p className="mt-0.5 leading-tight font-medium tabular-nums">
-                      {(plage.length ? plage.map((a) => hour(a.from)) : ["—"]).map((t) => (
-                        <span key={t} className="block text-[11px] sm:text-xs">
-                          {t}
-                        </span>
-                      ))}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1.5">
-                <Languages className="size-4" aria-hidden /> {c.languages.join(", ")}
-              </span>
-              <span>Jusqu'à {c.radiusKm} km</span>
-              <span>Dès {c.minHourly} €/h</span>
-            </p>
+            <Week coachId={coachId} />
           </Section>
         </div>
       </div>

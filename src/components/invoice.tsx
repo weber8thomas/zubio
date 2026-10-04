@@ -1,6 +1,7 @@
 import { FileCode2, Printer } from "lucide-react";
 import { motion } from "motion/react";
 import { Logo } from "@/components/brand";
+import { DocThumb, InvoicePageFrame } from "@/components/docs";
 import { Button } from "@/components/ui/button";
 import { BILLING } from "@/config/billing";
 import { dayLabel } from "@/lib/date";
@@ -10,7 +11,7 @@ import { cn } from "@/lib/utils";
 const TONE: Record<InvoiceStatus, string> = {
   deposee: "bg-muted text-muted-foreground",
   recue: "bg-warning-soft text-warning-ink",
-  acceptee: "bg-primary-soft text-primary-ink",
+  acceptee: "bg-success-soft/60 text-foreground ring-1 ring-success/40 ring-inset",
   refusee: "bg-primary-soft text-primary-ink",
   encaissee: "bg-success-soft text-success-ink",
 };
@@ -67,7 +68,7 @@ export function InvoiceTimeline({ status }: { status: InvoiceStatus }) {
 }
 
 /** Facture imprimable avec ses mentions obligatoires. */
-export function InvoiceDocument({ inv }: { inv: Invoice }) {
+export function InvoiceDocument({ inv, bare }: { inv: Invoice; bare?: boolean }) {
   const fmt = (d: string) => d.split("-").reverse().join("/");
   const party = (title: string, p: Invoice["seller"]) => (
     <div>
@@ -79,9 +80,9 @@ export function InvoiceDocument({ inv }: { inv: Invoice }) {
     </div>
   );
   return (
-    <article className="rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/70 sm:p-8 print:shadow-none print:ring-0">
+    <article className={bare ? "" : "rounded-3xl bg-card p-5 shadow-soft ring-1 ring-border/70 sm:p-8 print:shadow-none print:ring-0"}>
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <Logo className="h-7" />
+        {bare ? <span /> : <Logo className="h-7" />}
         <div className="text-right">
           <p className="font-heading text-xl font-extrabold">{inv.kind === "prestation" ? "Facture" : "Facture de commission"}</p>
           <p className="text-sm text-muted-foreground tabular-nums">N° {inv.number}</p>
@@ -99,7 +100,7 @@ export function InvoiceDocument({ inv }: { inv: Invoice }) {
           <tr className="border-b border-border-strong text-left text-xs text-muted-foreground">
             <th className="py-2 font-semibold">Désignation</th>
             <th className="py-2 text-right font-semibold">HT</th>
-            <th className="py-2 text-right font-semibold">TVA</th>
+            <th className="py-2 pl-3 text-right font-semibold">TVA</th>
           </tr>
         </thead>
         <tbody>
@@ -151,3 +152,26 @@ export function InvoiceExports({ inv }: { inv: Invoice }) {
 }
 
 export const PLATFORM_NOTE = `Transmise via une plateforme agréée (simulée) : réforme de la facture électronique, réception obligatoire depuis le 1er septembre 2026. ${BILLING.platform.name} émet la facture du coach par mandat.`;
+
+/** Facture au format A4, pour les miniatures et la visionneuse. */
+export const InvoiceA4 = ({ inv }: { inv: Invoice }) => (
+  <InvoicePageFrame>
+    <div style={{ zoom: 1.45 }}>
+      <InvoiceDocument inv={inv} bare />
+    </div>
+  </InvoicePageFrame>
+);
+
+/** Rangée de miniatures cliquables des dernières factures. */
+export function InvoiceThumbs({ list }: { list: Invoice[] }) {
+  if (!list.length) return null;
+  return (
+    <div className="scroll-row -mx-4 flex gap-4 overflow-x-auto px-4 pt-1 pb-3">
+      {list.slice(0, 6).map((i) => (
+        <DocThumb key={i.id} title={`N° ${i.number}`} subtitle={`${euro(i.ttc)} · ${STATUS_LABEL[i.status]}`} width={120}>
+          <InvoiceA4 inv={i} />
+        </DocThumb>
+      ))}
+    </div>
+  );
+}

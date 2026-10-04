@@ -26,13 +26,13 @@ const SLOTS: SeedSlot[] = [
   { id: "s15", venueId: "gochoa-anglet", classId: "bodypump", in: 7, start: "18:00", duration: 55, price: 40, status: "filled", coachId: "maialen" },
   { id: "s16", venueId: "clark-powell-bayonne", classId: "pilates", in: -6, start: "12:30", duration: 60, price: 40, status: "done", coachId: "maialen" },
   { id: "s17", venueId: "snb-fitness", classId: "stretching", in: -2, start: "19:00", duration: 45, price: 30, status: "done", coachId: "maialen" },
+  { id: "s18", venueId: MY_VENUE_ID, classId: "bodypump", in: -1, start: "18:30", duration: 55, price: 42, capacity: 30, status: "filled", coachId: "antton" },
 ];
 
 export function initialSlots(): Slot[] {
   const t = today();
   const now = Date.now();
   return SLOTS.map(({ in: offset, ...s }, i) => ({
-    radiusKm: 10,
     capacity: 20,
     level: "tous",
     audience: "Adultes",
@@ -54,7 +54,7 @@ export function initialSlots(): Slot[] {
 export const INITIAL_APPLICATIONS: Application[] = [
   { id: "a1", slotId: "s1", coachId: "antton", message: "Je connais bien votre studio vélo, je peux venir 15 min avant pour régler les machines.", status: "pending", at: Date.now() - 50 * 60_000 },
   { id: "a2", slotId: "s1", coachId: "hugo", message: "Disponible, la nouvelle chorégraphie RPM est prête.", status: "pending", at: Date.now() - 35 * 60_000 },
-  { id: "a3", slotId: "s6", coachId: "maialen", message: "", status: "pending", at: Date.now() - 20 * 60_000 },
+  { id: "a3", slotId: "s6", coachId: "maialen", message: "", status: "offered", at: Date.now() - 20 * 60_000 },
 ];
 
 /** Invitations envoyées par des salles à des coachs. */

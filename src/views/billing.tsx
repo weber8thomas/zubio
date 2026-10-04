@@ -2,7 +2,8 @@ import { BadgeCheck, Download, FileCheck2, Info, Landmark, ReceiptText, X } from
 import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { InvoiceDocument, InvoiceExports, InvoiceRow, InvoiceTimeline, PLATFORM_NOTE } from "@/components/invoice";
+import { DocPreview, DocThumb } from "@/components/docs";
+import { InvoiceA4, InvoiceDocument, InvoiceExports, InvoiceRow, InvoiceThumbs, InvoiceTimeline, PLATFORM_NOTE } from "@/components/invoice";
 import { BackLink, Empty, PageTitle, Section } from "@/components/kit";
 import { Chip } from "@/components/pickers";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,10 @@ export function SalleInvoices() {
         <Figure label="Total facturé" value={euro(total)} />
         <Figure label="TVA déductible" value={euro(vat)} />
       </div>
-      <div className="mt-6 mb-3 flex items-center justify-between gap-3">
+      <div className="mt-6">
+        <InvoiceThumbs list={all} />
+      </div>
+      <div className="mt-3 mb-3 flex items-center justify-between gap-3">
         <div className="flex gap-1.5">
           <Chip small active={filter === "todo"} onClick={() => setFilter("todo")}>
             À traiter
@@ -103,7 +107,18 @@ export function InvoicePage({ id, back, backLabel, canDecide }: { id: string; ba
           <InvoiceExports inv={inv} />
         </div>
       </div>
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="hidden sm:block print:hidden">
+        <DocPreview title={`Facture N° ${inv.number}`}>
+          <InvoiceA4 inv={inv} />
+        </DocPreview>
+      </motion.div>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="sm:hidden print:block">
+        <div className="mb-4 flex items-center gap-4 rounded-3xl bg-card p-3 ring-1 ring-border/70 print:hidden">
+          <DocThumb title="Aperçu A4" subtitle="Toucher pour agrandir" width={84}>
+            <InvoiceA4 inv={inv} />
+          </DocThumb>
+          <p className="text-sm text-muted-foreground">La facture telle qu'elle est transmise : format A4, mentions obligatoires et données structurées Factur-X.</p>
+        </div>
         <InvoiceDocument inv={inv} />
       </motion.div>
     </div>
@@ -193,6 +208,11 @@ export function CoachTax({ coachId }: { coachId: string }) {
           <p className="flex items-center gap-2 px-4 py-3 text-sm font-semibold">
             <ReceiptText className="size-4" aria-hidden /> Factures émises en votre nom
           </p>
+          {invoices.length > 0 && (
+            <div className="px-4 pt-3">
+              <InvoiceThumbs list={invoices} />
+            </div>
+          )}
           {invoices.length ? (
             invoices.map((i) => <InvoiceRow key={i.id} inv={i} href={`#/coach/facture/${i.id}`} who={i.buyer.name} />)
           ) : (
