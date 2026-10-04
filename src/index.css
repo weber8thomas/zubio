@@ -133,11 +133,18 @@
   }
 }
 
-/* Rangées défilantes horizontales : sans barre visible, bords en fondu. */
+/* Rangées défilantes horizontales : sans barre visible, fondu à droite ; repliées dès 640 px. */
 .scroll-row {
   scrollbar-width: none;
-  mask-image: linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
 .scroll-row::-webkit-scrollbar {
   display: none;
+}
+@media (min-width: 640px) {
+  .scroll-row {
+    flex-wrap: wrap;
+    overflow: visible;
+    mask-image: none;
+  }
 }
